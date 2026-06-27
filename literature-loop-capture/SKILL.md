@@ -1703,6 +1703,59 @@ the latest `knowledge_staging.py` refresh exist. The purpose is to feed
 nashsu/llm_wiki with the already curated literature dossier as a local project,
 not to replace the capture workflow or ask llm_wiki to crawl publishers.
 
+Before running the terminal export, run the LLM Wiki readnote quality gate.
+This gate is mandatory because captured batches may include `maybe`, duplicate,
+manual placeholder, or exact-target false-match articles that are useful during
+screening but should not become LLM Wiki source pages.
+
+The quality gate is:
+
+1. Enumerate every canonical article folder under
+   `subquestions/**/articles/*`.
+2. For every article with normalized full text (`captured-fulltext.md`,
+   `fulltext.md`, or `fulltext.json`) but no `reading-note-zh.md`, dispatch the
+   responsible subquestion agent to write the missing reading note from the
+   article folder and subquestion lens before export. Do not let Python invent
+   the note.
+3. For every article with no reading note and no normalized full text, record it
+   in a blocker ledger such as `missing-reading-notes-no-fulltext.md` and omit
+   it from `raw/sources/articles/**/article.md`. Metadata-only placeholders are
+   not valid LLM Wiki ingest sources.
+4. Read all `reading-note-zh.md` files and keep only article folders that the
+   agent judged worth close reading for the current project: explicit
+   `worth_close_reading: true/yes/是` with
+   `worth_close_reading_score_0_to_5 >= 3.0`, or an equivalent score >= 4.0
+   fallback when no negative marker exists.
+5. Drop explicit `false/no/否`, retrieval mismatch, low-relevance, off-topic,
+   negative-cleaning, or "not relevant" notes even when the article was captured
+   successfully. Drop duplicate DOI/title occurrences after keeping the best
+   representative by DOI first, then normalized title.
+6. Write `readnote-curation-ledger.csv` and
+   `raw/sources/dossier/root/readnote-curation-ledger.md` with keep/drop/blocked
+   decisions and reasons.
+7. Regenerate or remove unfiltered dossier pages that can reintroduce dropped
+   articles into LLM Wiki ingest, including broad `papers`, `captured_papers`,
+   `reading_notes_index`, `figures_tables`, `recommended_references`, and
+   `manual_pdf_needed` pages when they still list excluded articles.
+8. Verify that `manifest.csv`/`manifest.json` contain no paths to removed
+   article, asset, provenance, or dossier files, and that the manifest article
+   count equals the actual number of `raw/sources/articles/**/article.md` files.
+
+The result should be a curated LLM Wiki package: `wiki/` keeps navigation and
+process pages; `raw/sources/articles/**/article.md` contains only agent-reviewed
+article sources suitable for LLM Wiki to turn into source, concept, entity, and
+relationship pages.
+
+Keep article ingest pages compact. `raw/sources/articles/**/article.md` should
+include bibliographic metadata, abstract, local figure/table links, captured
+body text, and `reading-note-zh.md` context, but it should not append full
+`references.md` or `recommended-references.md` sections. It should also strip
+tail `References`, `Bibliography`, `Literature Cited`, or `参考文献` sections
+from captured body text before writing `article.md`. Those citation lists
+usually duplicate long reference strings, inflate embedding chunks, and distract
+LLM Wiki from the captured article body. Keep reference files in
+`raw/provenance/**` and curated dossier ledgers for audit and follow-up instead.
+
 ```bash
 python literature-loop-capture/scripts/llm_wiki_export.py "$RUN_DIR"
 ```

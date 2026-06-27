@@ -225,6 +225,25 @@ def clean_article_text(text: Any) -> str:
     return text.strip()
 
 
+REFERENCE_SECTION_RE = re.compile(
+    r"(?im)^\s{0,3}(?:#{1,6}\s*)?(references?|reference list|bibliography|literature cited|works cited|参考文献)\s*$"
+)
+
+
+def strip_reference_sections(text: str) -> str:
+    """Remove tail reference lists from article ingest text.
+
+    Reference files remain available in provenance/dossier ledgers; article.md
+    should focus LLM Wiki chunks on the captured body and reading note.
+    """
+    text = text.rstrip()
+    min_start = max(800, int(len(text) * 0.25))
+    for match in REFERENCE_SECTION_RE.finditer(text):
+        if match.start() >= min_start:
+            return text[: match.start()].rstrip()
+    return text
+
+
 def full_article_abstract(article_dir: Path) -> str:
     metadata = read_json(article_dir / "metadata.json", {})
     fulltext = read_json(article_dir / "fulltext.json", {})
@@ -239,10 +258,10 @@ def article_body_markdown(article_dir: Path) -> tuple[str, str]:
     for filename in ["captured-fulltext.md", "fulltext.md"]:
         path = article_dir / filename
         if path.exists():
-            return clean_article_text(path.read_text(encoding="utf-8", errors="replace")), filename
+            return strip_reference_sections(clean_article_text(path.read_text(encoding="utf-8", errors="replace"))), filename
     fulltext = read_json(article_dir / "fulltext.json", {})
     if fulltext.get("fullText"):
-        return clean_article_text(fulltext.get("fullText")), "fulltext.json:fullText"
+        return strip_reference_sections(clean_article_text(fulltext.get("fullText"))), "fulltext.json:fullText"
     section_blocks = fulltext.get("sectionBlocks")
     if isinstance(section_blocks, list) and section_blocks:
         parts: list[str] = []
@@ -255,7 +274,7 @@ def article_body_markdown(article_dir: Path) -> tuple[str, str]:
                 parts.append(f"## {title}")
             if text:
                 parts.append(text)
-        return "\n\n".join(parts).strip(), "fulltext.json:sectionBlocks"
+        return strip_reference_sections("\n\n".join(parts).strip()), "fulltext.json:sectionBlocks"
     return "", ""
 
 
@@ -319,8 +338,6 @@ def write_article_ingest_markdown(target: Path, article: dict[str, Any], run_dir
         article_dir / "reading-note-zh.md",
         "No reading-note-zh.md found for this article occurrence.",
     )
-    append_optional_markdown_section(lines, "References", article_dir / "references.md")
-    append_optional_markdown_section(lines, "Recommended References", article_dir / "recommended-references.md")
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
@@ -389,7 +406,7 @@ def write_project_root_docs(project_dir: Path, run_dir: Path, subquestions: list
 
 ## Evidence Rules
 
-`raw/sources/articles/**/article.md` is the canonical ingest text for each article occurrence. It should contain bibliographic metadata, abstract, local asset links, full text, reading-note context, and reference/recommended-reference context when available.
+`raw/sources/articles/**/article.md` is the canonical ingest text for each article occurrence. It should contain bibliographic metadata, abstract, local asset links, full text, and reading-note context. Do not append full `references.md` or `recommended-references.md` sections to article ingest pages; they inflate LLM Wiki chunks and usually duplicate citation strings rather than source evidence. Reference files stay in `raw/provenance/**` or curated dossier ledgers for audit and follow-up.
 
 `raw/sources/dossier/**` contains curated process and synthesis evidence: subquestion overviews, query journeys, coverage, seeds, references, duplicate reports, and final summaries.
 
