@@ -1,82 +1,81 @@
 # Literature Loop Capture
 
-这是一个给agent使用的公开文献检索与全文整理skill。它不是一次性“抓很多论文”，而是把文献综述做成一个可审阅、可批注、可迭代的loop：先做OpenAlex元数据grounding，再由agent写queryplan，用户审阅批准后，再通过OpenCLI控制的已登录浏览器去出版社页面检索、筛选、抓取全文，最后生成阅读笔记、coveragereview、overview和LLMWiki导出。
+这是一个给 agent 使用的公开文献检索与全文整理 skill。它不是一次性批量抓论文，而是把文献综述拆成可审阅、可批注、可迭代的 loop：先用 OpenAlex 做元数据 grounding，再由 agent 写 query plan；用户审阅批准后，再通过 OpenCLI 控制的已登录浏览器进入出版社页面检索、筛选、抓取网页全文，最后生成 reading notes、coverage review、overview 和 LLM Wiki 导出。
 
 当前默认支持：
 
-- OpenAlex元数据grounding
-- agent内置浏览器或localhost页面中的HTMLquery-plan审阅与现场批注
-- OpenCLI加已登录Chromeprofile的出版社检索与网页全文抓取
-- ScienceDirect/Elsevier、ACS、Wiley、Springer的直连出版社网页路径
-- Science、Nature、arXiv等PDF后续路径
-- MinerUAPI解析用户补充PDF
-- `_knowledge/`人类预览层
-- `llm_wiki_project_export/`LLMWiki导入包
+- OpenAlex 元数据 grounding
+- agent 内置浏览器或 localhost 页面中的 HTML query plan 审阅与现场批注
+- OpenCLI 加已登录 Chrome profile 的出版社检索与网页全文抓取
+- ScienceDirect/Elsevier、ACS、Wiley、Springer 的直连出版社网页路径
+- Science、Nature、arXiv 等 PDF 后续路径
+- MinerU API 解析用户补充 PDF
+- `_knowledge/` 人类预览层
+- `llm_wiki_project_export/` LLM Wiki 导入包
 
 ## 相关项目
 
-- LLMWiki导入与阅读端：[nashsu/llm_wiki](https://github.com/nashsu/llm_wiki)
-- OpenCLI浏览器控制：[jackwener/opencli](https://github.com/jackwener/opencli)
-- 可选PDF补充抓取：[Rimagination/scansci-pdf](https://github.com/Rimagination/scansci-pdf)
-- 本skill公开仓库：[ly1225-a/literature-loop-capture](https://github.com/ly1225-a/literature-loop-capture)
+- LLM Wiki 导入与阅读端：[nashsu/llm_wiki](https://github.com/nashsu/llm_wiki)
+- OpenCLI 浏览器控制：[jackwener/opencli](https://github.com/jackwener/opencli)
+- 可选 PDF 补充抓取：[Rimagination/scansci-pdf](https://github.com/Rimagination/scansci-pdf)
 
 ## 核心流程
 
 ```text
 研究问题
--> OpenAlex宽检索grounding
--> agent写queryplan
--> HTMLreviewpage在agent内置浏览器或localhost页面打开
+-> OpenAlex 宽检索 grounding
+-> agent 写 query plan
+-> HTML review page 在 agent 内置浏览器或 localhost 页面打开
 -> 用户现场批注、修正、批准
--> OpenCLI搜索出版社结果页
--> 标题/snippet/abstract筛选
--> 抓取网页全文、图表、表格
--> subquestion阅读笔记
--> 提取high-valueseeds和推荐references
--> coveragereview打分
--> 足够则结束；不足则生成下一轮broaddiscoveryquery
--> 所有subquestion结束后，统一处理references/PDF/manualholds
--> 生成overview、_knowledge和LLMWiki导出
+-> OpenCLI 搜索出版社结果页
+-> title / snippet / abstract 筛选
+-> 抓取网页全文、章节、图表、表格
+-> subquestion reading notes
+-> 提取 high-value seeds、references、gaps
+-> coverage review
+-> 足够则结束；不足则生成下一轮 broad discovery query
+-> 所有 subquestion 结束后，统一处理 references / PDF / manual holds
+-> 生成 overview、_knowledge 和 LLM Wiki 导出
 ```
 
 ## 设计重点
 
-1. **Queryplan先审阅再执行**
+1. **Query plan 先审阅再执行**
 
-   queryplan会生成HTML页面，并在agent内置浏览器或localhost页面里打开。用户可以现场批注、要求拆分subquestion、修改query，或指出明显误配。修正后再批准，避免检索一开始就跑偏。
+   query plan 会生成 HTML 页面，并在 agent 内置浏览器或 localhost 页面里打开。用户可以现场批注、要求拆分 subquestion、修改 query，或指出明显误配。修正后再批准，避免检索一开始就跑偏。
 
-2. **每个subquestion是闭环**
+2. **每个 subquestion 是闭环**
 
-   每个subquestion单独经历：
+   每个 subquestion 单独经历：
 
    ```text
    discovery -> abstract preview -> capture -> reading notes
-   -> seed/reference/gap extraction -> coverage review
+   -> seed / reference / gap extraction -> coverage review
    ```
 
-   只有coverage足够，或者明确`stop_with_gaps`/`blocked`，这个subquestion才算结束。
+   只有 coverage 足够，或者明确 `stop_with_gaps` / `blocked`，这个 subquestion 才算结束。
 
-3. **第二轮以后只让broaddiscovery进入新搜索**
+3. **第二轮以后只让 broad discovery 进入新搜索**
 
-   reference、seed、exacttarget会被保存到ledger，但不会被Python自动当成新broadquery乱搜。下一轮真正进入出版社搜索的，只是经过agent解释和用户审阅的短英文broaddiscoveryquery。
+   reference、seed、exact target 会被保存到 ledger，但不会被 Python 自动当成新 broad query 乱搜。下一轮真正进入出版社搜索的，只是经过 agent 解释和用户审阅的短英文 broad discovery query。
 
-4. **Exacttarget来自研究过程，并且必须复查**
+4. **Exact target 来自研究过程，并且必须复查**
 
-   exacttarget通常来自阅读笔记里的high-valueseed、已抓文章推荐的reference、coveragegap、queryrationale、用户批注，或者某个subquestion里反复出现的数据库、方法、benchmark、ontology、论文标题。它代表“这个东西值得单独确认”，但不等于Python可以直接拿字符串去OpenAlex自动配对。
+   exact target 通常来自 reading notes 里的 high-value seed、已抓文章推荐的 reference、coverage gap、query rationale、用户批注，或者某个 subquestion 里反复出现的数据库、方法、benchmark、ontology、论文标题。它代表“这个东西值得单独确认”，但不等于 Python 可以直接拿字符串去 OpenAlex 自动配对。
 
-   agent需要先复查exacttarget的含义，必要时扩写成数据库、资源、论文标题、DOI、作者或venue级别的明确目标。OpenAlex返回候选后，还要核对标题、DOI、venue和上下文。未通过`agent_openalex_verified=true`的exacttarget不进入后续抓取队列。
+   agent 需要先复查 exact target 的含义，必要时扩写成数据库、资源、论文标题、DOI、作者或 venue 级别的明确目标。OpenAlex 返回候选后，还要核对标题、DOI、venue 和上下文。未通过 `agent_openalex_verified=true` 的 exact target 不进入后续抓取队列。
 
-5. **四个核心出版社默认抓网页全文，不批量抓PDF**
+5. **四个核心出版社默认抓网页全文，不批量抓 PDF**
 
-   对ScienceDirect/Elsevier、ACS、Wiley、Springer，默认路径是打开文章网页并抽取正文、章节、图表和表格，而不是一次性批量下载PDF。这样做更适合agent阅读：网页DOM通常保留标题层级、摘要、图表说明、表格和引用信息，便于后续写readingnotes、抽seed、做coveragereview。批量PDF下载也更容易触发下载限制、验证码或临时封锁，所以PDF更适合作为补充路径，而不是主路径。
+   对 ScienceDirect/Elsevier、ACS、Wiley、Springer，默认路径是打开文章网页并抽取正文、章节、图表和表格，而不是一次性批量下载 PDF。网页 DOM 通常保留标题层级、摘要、图表说明、表格和引用信息，更适合 agent 后续写 reading notes、抽 seed、做 coverage review。批量 PDF 下载也更容易触发下载限制、验证码或临时封锁，所以 PDF 更适合作为补充路径，而不是主路径。
 
-6. **最后产物可以进入LLMWiki**
+6. **最后产物可以进入 LLM Wiki**
 
-   导出包会把正文Markdown、阅读笔记、图表、表格、queryjourney、subquestionoverview、ledger等整理成LLMWikiprojectexport。文章级source页面交给LLMWikiingest生成，项目wiki本身只保留导航、过程骨架和rawsources。导入LLMWiki或写项目说明时，可以把这个公开skill的GitHub链接作为方法来源：[https://github.com/ly1225-a/literature-loop-capture](https://github.com/ly1225-a/literature-loop-capture)。
+   导出包会把正文 Markdown、阅读笔记、图表、表格、query journey、subquestion overview、ledger 等整理成 LLM Wiki project export。文章级 source pages 交给 LLM Wiki ingest 生成，项目 wiki 本身只保留导航、过程骨架和 raw sources。导入端可参考 [nashsu/llm_wiki](https://github.com/nashsu/llm_wiki)。
 
 ## 快速开始
 
-先准备本地运行环境，并把公开skill链接到你的agent环境：
+先准备本地运行环境，并把公开 skill 链接到你的 agent 技能目录。下面以 `~/.codex/skills` 为例；其他 agent 环境可以改成自己的 skill 目录。
 
 ```bash
 ./scripts/setup_loop_runtime.sh
@@ -84,9 +83,9 @@ source .venv/bin/activate
 ln -sfn "$PWD/literature-loop-capture" "$HOME/.codex/skills/literature-loop-capture"
 ```
 
-Codex可以直接使用上面的skill目录。Claude用户可以参考`.claude/commands/literature-loop-capture.md`，让Claude读取`literature-loop-capture/SKILL.md`并按同一套loop执行。
+Claude Code 用户可以参考 `.claude/commands/literature-loop-capture.md`，让 Claude 读取 `literature-loop-capture/SKILL.md` 并按同一套 loop 执行。
 
-配置OpenCLI，并确认它能控制你已经登录的Chromeprofile：
+配置 OpenCLI，并确认它能控制你已经登录的 Chrome profile：
 
 ```bash
 opencli doctor
@@ -94,16 +93,16 @@ opencli profile list
 opencli profile use <your-profile>
 ```
 
-然后在这个Chrome/OpenCLIprofile里登录后续要用的出版社网站，例如ScienceDirect、ACS、Wiley、Springer、Science、Nature。脚本不会处理账号密码，只复用你已经登录好的浏览器状态。
+然后在这个 Chrome / OpenCLI profile 里登录后续要用的出版社网站，例如 ScienceDirect、ACS、Wiley、Springer、Science、Nature。脚本不会处理账号密码，只复用你已经登录好的浏览器状态。
 
-环境变量只放在本地shell或direnv中，不要提交真实key：
+环境变量只放在本地 shell 或 direnv 中，不要提交真实 key：
 
 ```bash
 export OPENALEX_API_KEY="..."
 export MINERU_API_KEY="..."
 ```
 
-之后主要通过和agent对话启动流程，而不是手动拼脚本参数。例如：
+之后主要通过和 agent 对话启动流程，而不是手动拼脚本参数。例如：
 
 ```text
 Use literature-loop-capture to review "<your topic>",
@@ -113,40 +112,40 @@ open the query-plan review page in the agent browser or localhost review page,
 wait for my approval, then continue the OpenCLI discovery/capture loop.
 ```
 
-agent会先做OpenAlexgrounding，写出queryplan，然后生成HTMLreviewpage。这个页面应该在agent内置浏览器或localhost页面里打开，方便你现场批注、指出query或subquestion的问题、要求拆分或修改。不要让reviewpage自动跳到普通Chrome，因为普通Chrome/OpenCLIprofile要保留给出版社登录状态。
+agent 会先做 OpenAlex grounding，写出 query plan，然后生成 HTML review page。这个页面应该在 agent 内置浏览器或 localhost 页面里打开，方便你现场批注、指出 query 或 subquestion 的问题、要求拆分或修改。不要让 review page 自动跳到普通 Chrome，因为普通 Chrome / OpenCLI profile 要保留给出版社登录状态。
 
-你批准queryplan后，agent会继续运行discovery、abstractpreview、capture、readingnotes、coveragereview和后续iteration。你可以随时问：
+你批准 query plan 后，agent 会继续运行 discovery、abstract preview、capture、reading notes、coverage review 和后续 iteration。你可以随时问：
 
 ```text
 现在流程到哪一步了？
-还有哪些manual hold？
-打开当前query plan/coverage review给我看。
+还有哪些 manual hold？
+打开当前 query plan / coverage review 给我看。
 继续下一步。
 ```
 
-## PDF与MinerU
+## PDF 与 MinerU
 
-四个核心出版社的主路径是网页全文抽取，不是PDF下载。PDF主要用于三类情况：自动网页抓取拿不到全文、文章只适合PDF路径、用户已经手动补充PDF。
+四个核心出版社的主路径是网页全文抽取，不是 PDF 下载。PDF 主要用于三类情况：自动网页抓取拿不到全文、文章只适合 PDF 路径、用户已经手动补充 PDF。
 
-当需要补充PDF时，先生成`_knowledge/`：
+当需要补充 PDF 时，先生成 `_knowledge/`：
 
 ```bash
 python literature-loop-capture/scripts/knowledge_staging.py "LiteratureCaptures/<run-folder>"
 ```
 
-用户把PDF放入对应subquestion：
+用户把 PDF 放入对应 subquestion：
 
 ```text
 _knowledge/subquestions/<subquestion_id>/manual_pdf_dropbox/
 ```
 
-之后同步回标准articlefolder，运行MinerUAPInormalize，再让reading-note流程继续。标准流程只使用MinerUAPI，不要求本地MinerU模型。
+之后同步回标准 article folder，运行 MinerU API normalize，再让 reading-note 流程继续。标准流程只使用 MinerU API，不要求本地 MinerU 模型。
 
-如果需要额外抓PDF，可以把[Rimagination/scansci-pdf](https://github.com/Rimagination/scansci-pdf)作为外部PDF抓取工具使用。建议把这类PDF抓取当成补充步骤：先用本skill完成出版社网页全文、阅读笔记和coverage判断，再针对manualholds或确实缺全文的DOI补PDF。
+本 skill 不内置 `scansci-pdf`，也不把批量 PDF 抓取作为主流程。如果需要额外获取 PDF，可以把 [Rimagination/scansci-pdf](https://github.com/Rimagination/scansci-pdf) 作为可选外部途径；获取到的 PDF 再放入 `_knowledge/subquestions/<subquestion_id>/manual_pdf_dropbox/`，之后用本 skill 的 MinerU API normalize 流程接回 article folder。
 
-## LLMWiki导出
+## LLM Wiki 导出
 
-最终overview和subquestionsummaries完成后导出：
+最终 overview 和 subquestion summaries 完成后导出：
 
 ```bash
 python literature-loop-capture/scripts/llm_wiki_export.py \
@@ -179,14 +178,12 @@ python literature-loop-capture/scripts/llm_wiki_export.py \
     provenance/
 ```
 
-`raw/sources/articles/**/article.md`是LLMWikiingest的主要输入。PDF不再复制进LLMWiki；抓取或MinerU规范化后的Markdown才是导入源。图像和表格放在`raw/assets/`，并在articleMarkdown中链接或嵌入。
-
-导入LLMWiki后，建议在项目说明或overview里保留公开方法链接：[https://github.com/ly1225-a/literature-loop-capture](https://github.com/ly1225-a/literature-loop-capture)。这样后续agent能知道rawsources、queryjourney、ledger和article.md的组织方式来自哪个skill。
+`raw/sources/articles/**/article.md` 是 LLM Wiki ingest 的主要输入。PDF 不再复制进 LLM Wiki；抓取或 MinerU 规范化后的 Markdown 才是导入源。图像和表格放在 `raw/assets/`，并在 article Markdown 中链接或嵌入。
 
 ## 边界
 
-- OpenAlex只用于元数据grounding，不是全文来源。
-- Python可以校验、去重、路由、导出，但不能替代agent做语义判断。
-- queryplan、coverage、referencefollow-up都必须留下可审计文件。
-- 出版社登录状态由用户自己的Chrome/OpenCLIprofile提供，脚本不处理密码。
-- CAPTCHA、登录失效、PDFviewer下载失败都记录blocker，不绕过。
+- OpenAlex 只用于元数据 grounding，不是全文来源。
+- Python 可以校验、去重、路由、导出，但不能替代 agent 做语义判断。
+- query plan、coverage、reference follow-up 都必须留下可审计文件。
+- 出版社登录状态由用户自己的 Chrome / OpenCLI profile 提供，脚本不处理密码。
+- CAPTCHA、登录失效、PDF viewer 下载失败都记录 blocker，不绕过。
