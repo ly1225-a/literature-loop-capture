@@ -1,0 +1,25 @@
+Literature Loop Capture public skill package
+Generated: 2026-06-28
+
+Included public package:
+README.md
+MANIFEST.txt
+.env.example
+requirements.txt
+scripts/setup_loop_runtime.sh
+literature-loop-capture/SKILL.md
+literature-loop-capture/agents/openai.yaml
+literature-loop-capture/references/publisher-direct-url-patterns.md
+literature-loop-capture/scripts/
+literature-loop-capture/tests/
+
+Local institutional package:
+not part of this public package
+
+Excluded by design:
+.git/
+.pytest_cache/
+__pycache__/
+LiteratureCaptures/
+_knowledge/
+browser profiles, credentials, captured article outputs, and temporary run folders

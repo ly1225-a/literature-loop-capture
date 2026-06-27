@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.DS_Store
+LiteratureCaptures/
+_knowledge/
+llm_wiki_project_export/
+*.pyc
+*.pyo
+*.log
+.env

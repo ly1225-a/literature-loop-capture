@@ -1,0 +1,4 @@
+beautifulsoup4>=4.12
+PyYAML>=6.0
+certifi>=2024.0
+requests>=2.31
