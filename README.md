@@ -1,11 +1,11 @@
 # Literature Loop Capture
 
-这是一个给Codex使用的公开文献检索与全文整理skill。它不是一次性“抓很多论文”，而是把文献综述做成一个可审阅、可批注、可迭代的loop：先做OpenAlex元数据grounding，再由agent写queryplan，用户审阅批准后，再通过OpenCLI控制的已登录浏览器去出版社页面检索、筛选、抓取全文，最后生成阅读笔记、coveragereview、overview和LLMWiki导出。
+这是一个给agent使用的公开文献检索与全文整理skill。它不是一次性“抓很多论文”，而是把文献综述做成一个可审阅、可批注、可迭代的loop：先做OpenAlex元数据grounding，再由agent写queryplan，用户审阅批准后，再通过OpenCLI控制的已登录浏览器去出版社页面检索、筛选、抓取全文，最后生成阅读笔记、coveragereview、overview和LLMWiki导出。
 
 当前默认支持：
 
 - OpenAlex元数据grounding
-- Codex内置浏览器中的HTMLquery-plan审阅与现场批注
+- agent内置浏览器或localhost页面中的HTMLquery-plan审阅与现场批注
 - OpenCLI加已登录Chromeprofile的出版社检索与网页全文抓取
 - ScienceDirect/Elsevier、ACS、Wiley、Springer的直连出版社网页路径
 - Science、Nature、arXiv等PDF后续路径
@@ -13,13 +13,20 @@
 - `_knowledge/`人类预览层
 - `llm_wiki_project_export/`LLMWiki导入包
 
+## 相关项目
+
+- LLMWiki导入与阅读端：[nashsu/llm_wiki](https://github.com/nashsu/llm_wiki)
+- OpenCLI浏览器控制：[jackwener/opencli](https://github.com/jackwener/opencli)
+- 可选PDF补充抓取：[Rimagination/scansci-pdf](https://github.com/Rimagination/scansci-pdf)
+- 本skill公开仓库：[ly1225-a/literature-loop-capture](https://github.com/ly1225-a/literature-loop-capture)
+
 ## 核心流程
 
 ```text
 研究问题
 -> OpenAlex宽检索grounding
 -> agent写queryplan
--> HTMLreviewpage在Codex内置浏览器打开
+-> HTMLreviewpage在agent内置浏览器或localhost页面打开
 -> 用户现场批注、修正、批准
 -> OpenCLI搜索出版社结果页
 -> 标题/snippet/abstract筛选
@@ -36,7 +43,7 @@
 
 1. **Queryplan先审阅再执行**
 
-   queryplan会生成HTML页面，并在Codex内置浏览器里打开。用户可以现场批注、要求拆分subquestion、修改query，或指出明显误配。修正后再批准，避免检索一开始就跑偏。
+   queryplan会生成HTML页面，并在agent内置浏览器或localhost页面里打开。用户可以现场批注、要求拆分subquestion、修改query，或指出明显误配。修正后再批准，避免检索一开始就跑偏。
 
 2. **每个subquestion是闭环**
 
@@ -69,13 +76,15 @@
 
 ## 快速开始
 
-先准备本地运行环境，并把公开skill链接到Codex：
+先准备本地运行环境，并把公开skill链接到你的agent环境：
 
 ```bash
 ./scripts/setup_loop_runtime.sh
 source .venv/bin/activate
 ln -sfn "$PWD/literature-loop-capture" "$HOME/.codex/skills/literature-loop-capture"
 ```
+
+Codex可以直接使用上面的skill目录。Claude用户可以参考`.claude/commands/literature-loop-capture.md`，让Claude读取`literature-loop-capture/SKILL.md`并按同一套loop执行。
 
 配置OpenCLI，并确认它能控制你已经登录的Chromeprofile：
 
@@ -94,17 +103,17 @@ export OPENALEX_API_KEY="..."
 export MINERU_API_KEY="..."
 ```
 
-之后主要通过和Codexagent对话启动流程，而不是手动拼脚本参数。例如：
+之后主要通过和agent对话启动流程，而不是手动拼脚本参数。例如：
 
 ```text
 Use literature-loop-capture to review "<your topic>",
 years 2021-2026, publishers Elsevier, ACS, Wiley, Springer.
 Run doctor first, create the OpenAlex-grounded query plan,
-open the query-plan review page in the Codex built-in browser,
+open the query-plan review page in the agent browser or localhost review page,
 wait for my approval, then continue the OpenCLI discovery/capture loop.
 ```
 
-agent会先做OpenAlexgrounding，写出queryplan，然后生成HTMLreviewpage。这个页面应该在Codex内置浏览器里打开，方便你现场批注、指出query或subquestion的问题、要求拆分或修改。不要让reviewpage自动跳到普通Chrome，因为普通Chrome/OpenCLIprofile要保留给出版社登录状态。
+agent会先做OpenAlexgrounding，写出queryplan，然后生成HTMLreviewpage。这个页面应该在agent内置浏览器或localhost页面里打开，方便你现场批注、指出query或subquestion的问题、要求拆分或修改。不要让reviewpage自动跳到普通Chrome，因为普通Chrome/OpenCLIprofile要保留给出版社登录状态。
 
 你批准queryplan后，agent会继续运行discovery、abstractpreview、capture、readingnotes、coveragereview和后续iteration。你可以随时问：
 

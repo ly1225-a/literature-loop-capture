@@ -1,6 +1,6 @@
 interface:
   display_name: "Literature Loop Capture"
   short_description: "OpenAlex-grounded literature review loops with OpenCLI publisher capture"
-  default_prompt: "Use $literature-loop-capture to ground my review topic with OpenAlex metadata, write an agent-authored query plan, open the query-plan HTML in the Codex built-in browser for my approval, then run OpenCLI publisher discovery/capture through my already logged-in Chrome profile, write reading notes, review coverage, iterate if needed, and export a LLM Wiki project."
+  default_prompt: "Use $literature-loop-capture to ground my review topic with OpenAlex metadata, write an agent-authored query plan, open the query-plan HTML in the agent browser or localhost review page for my approval, then run OpenCLI publisher discovery/capture through my already logged-in Chrome profile, write reading notes, review coverage, iterate if needed, and export a LLM Wiki project."
 policy:
   allow_implicit_invocation: true

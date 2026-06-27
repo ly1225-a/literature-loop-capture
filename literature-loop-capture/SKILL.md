@@ -32,8 +32,8 @@ when gaps remain, then export a LLM Wiki project.
 ```
 
 After `review-plan`, serve the run directory and open
-`query-plan-review.html` in the Codex built-in browser, not the OpenCLI Chrome
-profile:
+`query-plan-review.html` in the agent's built-in browser or a localhost review
+page, not the OpenCLI Chrome profile:
 
 ```bash
 python3 -m http.server 8765 --bind 127.0.0.1 --directory "LiteratureCaptures/<run-folder>"
