@@ -746,15 +746,21 @@ def article_extraction_script() -> str:
             .join('\\n\\n'));
           const abstractFallbackSelectors = [
             '[data-test="abstract"]',
+            '[data-test*="abstract" i]',
             '[data-testid="abstract"]',
+            '[data-testid*="abstract" i]',
             '#abstract',
+            '#abstracts',
+            '#Abs1',
             '#Abs1-content',
             '.abstract',
             '.Abstract',
             '.article-abstract',
             '.article__abstract',
+            '.article-section__abstract',
             '.c-article-section__abstract',
             '.abstractSection',
+            'section[aria-labelledby*="abstract" i]',
             '[class*="abstract" i]',
             '[id*="abstract" i]',
             '[aria-label*="abstract" i]',
@@ -793,16 +799,56 @@ def article_extraction_script() -> str:
           const selectorAbstract = abstractCandidates.length
             ? abstractCandidates.slice().sort((a, b) => b.charCount - a.charCount)[0].text
             : '';
+          const abstractFromBodyText = () => {
+            const bodyText = cleanBlock(document.body && document.body.innerText || '');
+            if (!bodyText) return '';
+            const patterns = [
+              /(?:^|\\n|\\b)Abstract\\s+([\\s\\S]{140,3600}?)(?:\\n\\s*(?:Keywords?|Introduction|Graphical Abstract|Download PDF|References|Supporting Information)\\b|$)/i,
+              /(?:^|\\n|\\b)Summary\\s+([\\s\\S]{140,3600}?)(?:\\n\\s*(?:Keywords?|Introduction|References|Supporting Information)\\b|$)/i
+            ];
+            for (const pattern of patterns) {
+              const match = bodyText.match(pattern);
+              if (!match || !match[1]) continue;
+              const text = normalizeAbstract(match[1]);
+              if (text && text.length >= 120 && !badText.test(text)) return text;
+            }
+            const compactText = bodyText.replace(/\\s+/g, ' ').trim();
+            const compactPatterns = [
+              /(?:^|\\b)Abstract\\s+(.{140,3600}?)(?:\\s+(?:Keywords?|Introduction|Graphical Abstract|Download PDF|References|Supporting Information)\\b|$)/i,
+              /(?:^|\\b)Summary\\s+(.{140,3600}?)(?:\\s+(?:Keywords?|Introduction|References|Supporting Information)\\b|$)/i
+            ];
+            for (const pattern of compactPatterns) {
+              const match = compactText.match(pattern);
+              if (!match || !match[1]) continue;
+              const text = normalizeAbstract(match[1]);
+              if (text && text.length >= 120 && !badText.test(text)) return text;
+            }
+            return '';
+          };
+          const bodyTextAbstract = abstractFromBodyText();
+          if (bodyTextAbstract) {
+            const key = bodyTextAbstract.slice(0, 240).toLowerCase();
+            if (!seenAbstractCandidates.has(key)) {
+              seenAbstractCandidates.add(key);
+              abstractCandidates.push({
+                selector: 'body_text_abstract_regex',
+                text: bodyTextAbstract.slice(0, 3000),
+                charCount: bodyTextAbstract.length
+              });
+            }
+          }
           const metaAbstract = meta('citation_abstract');
           const descriptionAbstract = meta('description');
-          const finalAbstract = metaAbstract || structuredAbstract || selectorAbstract || descriptionAbstract || '';
+          const finalAbstract = metaAbstract || structuredAbstract || selectorAbstract || bodyTextAbstract || descriptionAbstract || '';
           const abstractExtractionMethod = metaAbstract
             ? 'citation_abstract_meta'
             : structuredAbstract
               ? 'heading_section'
               : selectorAbstract
                 ? 'dom_selector'
-                : descriptionAbstract
+                : bodyTextAbstract
+                  ? 'body_text_abstract_regex'
+                  : descriptionAbstract
                   ? 'description_meta'
                   : 'missing';
           return {
@@ -1287,7 +1333,7 @@ def capture_one_opencli(item: dict[str, Any], literature: Path, args: argparse.N
     except Exception as exc:
         return {"status": "manual_pending", "reason": str(exc), "doi": doi, "publisher": publisher, "title": title, "url": str(item.get("url") or "")}
     try:
-        opencli_browser.open_url(args.opencli_session, url, timeout=90)
+        reached_url = opencli_browser.open_url_allow_redirect(args.opencli_session, url, timeout=90)
         opencli_browser.settle_article_page(
             args.opencli_session,
             initial_wait_ms=int(getattr(args, "article_open_wait_ms", None) or getattr(args, "settle_ms", 5000) or 5000),
@@ -1299,6 +1345,8 @@ def capture_one_opencli(item: dict[str, Any], literature: Path, args: argparse.N
             raise RuntimeError("opencli_invalid_article_payload")
         if doi and not data.get("doi"):
             data["doi"] = doi
+        if reached_url and not data.get("url"):
+            data["url"] = reached_url
         if not data.get("authors"):
             data["authors"] = infer_authors_from_text(data.get("fullText") or "", data.get("title") or title)
         for field in ["title", "authors", "journal", "year"]:

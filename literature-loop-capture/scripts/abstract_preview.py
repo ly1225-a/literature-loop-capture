@@ -405,7 +405,7 @@ def opencli_metadata(entry: dict[str, Any], args: argparse.Namespace) -> dict[st
         return {"abstract": "", "method": "opencli_missing_href", "error": "missing href"}
     session = clean(args.opencli_session) or "lit-preview"
     try:
-        opencli_browser.open_url(session, href, timeout=90)
+        reached_url = opencli_browser.open_url_allow_redirect(session, href, timeout=90)
         opencli_browser.settle_article_page(
             session,
             initial_wait_ms=int(getattr(args, "article_open_wait_ms", None) or getattr(args, "settle_ms", 5000) or 5000),
@@ -425,7 +425,7 @@ def opencli_metadata(entry: dict[str, Any], args: argparse.Namespace) -> dict[st
         "journal": clean(data.get("journal")),
         "year": clean(data.get("year")),
         "authors": "; ".join(data.get("authors") or []) if isinstance(data.get("authors"), list) else clean(data.get("authors")),
-        "landing_url_after_redirect": clean(data.get("url")),
+        "landing_url_after_redirect": clean(data.get("url")) or reached_url,
         "abstract_candidates": json.dumps(data.get("abstractCandidates") or [], ensure_ascii=False),
     }
 

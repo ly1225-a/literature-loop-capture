@@ -483,7 +483,7 @@ def capture_browser_pdf(
                 },
             )
         browser_url = preferred_browser_open_url(row)
-        opencli_browser.open_url(session, browser_url, timeout=90)
+        opencli_browser.open_url_allow_redirect(session, browser_url, timeout=90)
         opencli_browser.wait_time(session, wait_seconds)
         browser_fetch_result = browser_fetch_pdf(row, session)
         browser_fetch_attempt = browser_fetch_attempt_status(browser_fetch_result)

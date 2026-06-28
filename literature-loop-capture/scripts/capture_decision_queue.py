@@ -312,7 +312,7 @@ def write_capture_row(
 
 
 def opencli_extract_article(session: str, href: str, args: argparse.Namespace) -> dict[str, Any]:
-    opencli_browser.open_url(session, href, timeout=90)
+    reached_url = opencli_browser.open_url_allow_redirect(session, href, timeout=90)
     opencli_browser.settle_article_page(
         session,
         initial_wait_ms=max(
@@ -326,6 +326,8 @@ def opencli_extract_article(session: str, href: str, args: argparse.Namespace) -
     data = opencli_browser.eval_json(session, capture.article_extraction_script(), timeout=120)
     if not isinstance(data, dict):
         raise RuntimeError("opencli_article_extract_invalid_payload")
+    if reached_url and not data.get("url"):
+        data["url"] = reached_url
     return data
 
 
