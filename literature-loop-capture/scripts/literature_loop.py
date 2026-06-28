@@ -1049,26 +1049,16 @@ def openalex_overview_html(preview: dict[str, Any]) -> str:
         )
         for publisher in ["elsevier", "acs", "wiley", "springer"]
     )
-    probe_queries = [clean(item) for item in grounding.get("probe_queries") or [] if clean(item)]
     return """
     <section class="panel">
       <h2>Grounding Overview</h2>
-      <div class="overview-grid">
-        <div>
-          <h3>OpenAlex Status</h3>
-          <p><span class="status">{status}</span> <span class="muted">API key: {api_key}</span></p>
-          <h3>Publisher Focus</h3>
-          <p>{publisher_focus}</p>
-        </div>
-        <div>
-          <h3>OpenAlex Grounding Probes</h3>
-          <p class="muted">Not final publisher queries.</p>
-          <ul>{probe_queries}</ul>
-        </div>
-      </div>
+      <h3>OpenAlex Status</h3>
+      <p><span class="status">{status}</span> <span class="muted">API key: {api_key}</span></p>
+      <h3>Publisher Focus</h3>
+      <p>{publisher_focus}</p>
       <h3>Key OpenAlex Seeds</h3>
       <ol class="seed-list">{seed_blocks}</ol>
-      <h3>Concept Blocks Used For Planning</h3>
+      <h3>Claim Vocabulary Hints</h3>
       <ul>{concept_blocks}</ul>
       <p class="callout">Grounding comes from OpenAlex metadata only. If you reject a subquestion or query, the next revision must run a targeted OpenAlex re-grounding pass for that concern before updating the query plan.</p>
     </section>
@@ -1076,9 +1066,8 @@ def openalex_overview_html(preview: dict[str, Any]) -> str:
         status=html_text(grounding.get("status") or "unknown"),
         api_key="present" if grounding.get("api_key_present") else "missing",
         publisher_focus=publisher_focus or "<span class='muted'>No publisher focus data.</span>",
-        probe_queries=html_list(probe_queries[:10]),
         seed_blocks="\n".join(seed_blocks) or "<li class='muted'>No OpenAlex seed works recorded.</li>",
-        concept_blocks="\n".join(concept_blocks) or "<li class='muted'>No concept hints recorded.</li>",
+        concept_blocks="\n".join(concept_blocks) or "<li class='muted'>No claim vocabulary hints recorded.</li>",
     )
 
 

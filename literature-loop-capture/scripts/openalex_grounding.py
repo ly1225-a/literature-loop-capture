@@ -66,7 +66,7 @@ def render_agent_packet(claim: str, rounds: int, openalex_audit: dict[str, Any])
         "## Non-Negotiable Boundary",
         "",
         "Python has already written OpenAlex metadata. The agent must now author the query plan.",
-        "Do not copy probe-query suffix variants or generic review buckets across subquestions.",
+        "Do not copy generic review buckets across subquestions.",
         "Each query needs a distinct concept anchor, evidence source, expected result type, and non-redundancy rationale.",
         "",
         "## Query Design Guidance",
@@ -76,24 +76,15 @@ def render_agent_packet(claim: str, rounds: int, openalex_audit: dict[str, Any])
         "- Keep publisher queries simple enough for publisher search forms; put Boolean thinking in the rationale, not in the query text.",
         "- If two queries share most words, rewrite one around a different anchor or explicitly justify an exception.",
         "",
-        "## OpenAlex Grounding Probes (not publisher queries)",
+        "## Claim Vocabulary Hints",
         "",
-        "These are metadata-grounding probes for agent terminology discovery, not final publisher queries.",
+        "These terms are extracted from the current claim only. Use them as orientation, then rely on OpenAlex work metadata for the actual subquestions and publisher queries.",
         "",
     ]
-    for query in openalex_audit.get("probe_queries") or []:
-        lines.append(f"- `{query}`")
-    lines.extend([
-        "",
-        "## Open Concept Hints",
-        "",
-        "Use these as optional terminology blocks while authoring the query plan; keep or discard them based on the metadata evidence.",
-        "",
-    ])
     for hint in openalex_audit.get("concept_hints") or []:
         terms = ", ".join(f"`{term}`" for term in hint.get("terms") or [])
         lines.extend([
-            f"### {hint.get('label') or 'concept hint'}",
+            f"### {hint.get('label') or 'claim vocabulary'}",
             "",
             f"- Purpose: {hint.get('purpose') or ''}",
             f"- Terms: {terms}",

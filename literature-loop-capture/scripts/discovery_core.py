@@ -489,77 +489,30 @@ def openalex_work_matches_claim(joined_text: str, domain_terms: list[str], frame
 
 
 def openalex_grounding_concept_hints(claim: str) -> list[dict[str, Any]]:
-    """Build broad, non-final terminology blocks for agent OpenAlex grounding."""
-    topic = claim_topic_phrase(claim) or normalize_ws(" ".join(claim_domain_terms(claim)[:3]))
-    low = claim.lower()
-
-    def with_topic(terms: list[str]) -> list[str]:
-        out: list[str] = []
-        for term in terms:
-            if "{topic}" in term:
-                if topic:
-                    out.append(term.format(topic=topic))
-            else:
-                out.append(term)
-        return unique_ordered(out)
-
-    resource_terms = with_topic([
-        "{topic} database",
-        "{topic} dataset",
-        "{topic} resource",
-        "domain database",
-        "knowledge graph data source",
+    """Record only terminology directly present in the current claim."""
+    topic = claim_topic_phrase(claim)
+    terms = unique_ordered([
+        *(phrase_terms(claim) or []),
+        topic,
+        *claim_domain_terms(claim),
+        *claim_framework_terms(claim),
+        *domain_query_expansions(claim),
     ])
-    schema_terms = with_topic([
-        "{topic} ontology",
-        "{topic} schema",
-        "{topic} knowledge graph",
-        "entity relation schema",
-        "semantic annotation",
-    ])
-    method_terms = [
-        "graph construction",
-        "relation extraction",
-        "graph embedding",
-        "representation learning",
-        "link prediction",
-        "graph completion",
-    ]
-    evaluation_terms = with_topic([
-        "{topic} recommendation",
-        "{topic} clustering",
-        "{topic} benchmark",
-        "graph evaluation",
-        "validation metric",
-    ])
+    terms = [term for term in terms if term]
+    if not terms:
+        return []
     return [
         {
-            "label": "resource vocabulary",
-            "terms": resource_terms[:10],
-            "purpose": "Broaden metadata grounding around data sources, entities, attributes, and reusable resources.",
-        },
-        {
-            "label": "schema vocabulary",
-            "terms": schema_terms[:10],
-            "purpose": "Expose ontology, schema, entity, relation, and semantic-model terminology for the agent.",
-        },
-        {
-            "label": "method vocabulary",
-            "terms": method_terms[:10],
-            "purpose": "Expose construction, extraction, embedding, completion, and representation-learning terminology.",
-        },
-        {
-            "label": "application and evaluation vocabulary",
-            "terms": evaluation_terms[:10],
-            "purpose": "Expose downstream task, validation, benchmark, and evaluation terminology.",
-        },
+            "label": "claim vocabulary",
+            "terms": terms[:10],
+            "purpose": "Terms extracted from the current user claim only; use OpenAlex work metadata, not canned vocabulary blocks, to author the query plan.",
+        }
     ]
 
 
 def openalex_grounding_probe_queries(claim: str, limit: int = 14) -> list[str]:
     """Return broad OpenAlex metadata probes; these are not final publisher queries."""
     core = core_terms(claim)
-    low = claim.lower()
     probes = [
         claim,
         " ".join(core[:6]),

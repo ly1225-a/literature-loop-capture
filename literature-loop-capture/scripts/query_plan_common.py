@@ -138,28 +138,18 @@ def render_openalex_grounding(openalex_audit: dict[str, Any]) -> str:
         f"- Terms: {', '.join(openalex_audit.get('terms') or []) or 'none'}",
         "",
     ]
-    probes = openalex_audit.get("probe_queries") or []
-    if probes:
-        lines.extend([
-            "## OpenAlex Grounding Probes (not publisher queries)",
-            "",
-            "These OpenAlex metadata probes are intentionally broad and are not final publisher queries.",
-            "",
-        ])
-        lines.extend(f"- `{query}`" for query in probes)
-        lines.append("")
     hints = openalex_audit.get("concept_hints") or []
     if hints:
         lines.extend([
-            "## Open Concept Hints",
+            "## Claim Vocabulary Hints",
             "",
-            "These vocabulary blocks help the agent see industry terms and neighboring concepts before narrowing the query plan.",
+            "These terms are extracted from the current claim only. They are orientation hints, not a fixed subquestion template.",
             "",
         ])
         for hint in hints:
             terms = ", ".join(f"`{term}`" for term in hint.get("terms") or [])
             lines.extend([
-                f"### {hint.get('label') or 'concept hint'}",
+                f"### {hint.get('label') or 'claim vocabulary'}",
                 "",
                 f"- Purpose: {hint.get('purpose') or ''}",
                 f"- Terms: {terms}",

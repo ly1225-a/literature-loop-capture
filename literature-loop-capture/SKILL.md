@@ -706,16 +706,12 @@ this preflight is complete:
    the question in English.
 2. Use agent baseline knowledge plus broad OpenAlex works metadata to identify
    the topic frame, synonyms, industry terms, major resources, method families,
-   applications, and known limitations. The OpenAlex probes should be wider
-   than the final publisher queries; narrowing happens only when the agent
-   authors `agent-query-plan.json`. The agent must inspect titles, abstracts,
-   topics, keywords, venues, DOI/year/citation signals, broad probe queries,
-   concept hints, and supported-publisher focus evidence before finalizing
-   subquestions and publisher queries.
-   Broad probe queries are a prompt for thinking, not a source of executable
-   search strings. Do not copy a `probe_queries` value verbatim into
-   `subquestions[].queries[].query`; rewrite around a specific agent-verified
-   concept anchor and cite the OpenAlex work metadata that justifies it.
+   applications, and known limitations. The agent must inspect titles,
+   abstracts, topics, keywords, venues, DOI/year/citation signals,
+   claim-vocabulary hints, and supported-publisher focus evidence before
+   finalizing subquestions and publisher queries. `probe_queries` are retained
+   only in machine-readable JSON for audit and validator checks; do not use
+   them as human-facing planning prompts or executable search strings.
 3. Run OpenAlex grounding with `OPENALEX_API_KEY` and record it as an
    `--exploration-source`. OpenAlex is metadata grounding only; it is not a
    full-text source.
@@ -926,8 +922,9 @@ before capture and should support:
   that the agent can inspect before approval, including titles, year, venue,
   DOI, topics/keywords, and abstract excerpts when OpenAlex provides them. Do
   not treat `openalex_grounding.terms` alone as sufficient approval evidence.
-  The file also records broad `probe_queries` and open `concept_hints`; these
-  are metadata-grounding prompts for the agent, not final publisher queries.
+  The JSON also records `probe_queries` for audit/validator checks and
+  `concept_hints` as claim-vocabulary hints. The readable Markdown and review
+  HTML should show claim vocabulary, not broad probes.
 - `exploration-sources.csv/json`: URLs or metadata sources used for framing.
 - `query-plan-preview.md/json`: validated agent-authored English atomic
   subquestions, query families, concept anchors, simple publisher queries,
@@ -940,9 +937,9 @@ missing or empty.
 
 `openalex_grounding.py` writes the machine-readable OpenAlex audit into
 `openalex-grounding.md/json` and writes `agent-query-plan-packet.md` for
-agent-readable metadata inspection. Its OpenAlex probes are deliberately broad
-and may include adjacent industry terminology; they are not approved publisher
-queries. The agent writes `agent-query-plan.json`;
+agent-readable metadata inspection. Machine-readable `probe_queries` are not
+approved publisher queries and are not shown as review-page planning prompts.
+The agent writes `agent-query-plan.json`;
 `validate_agent_query_plan.py` rejects missing evidence, bare strings, and
 near-duplicate suffix queries. It also rejects executable query text that
 copies an OpenAlex probe query or retains year-filter residue such as `years`
