@@ -1,11 +1,11 @@
 # Literature Loop Capture
 
-这是一个给 agent 使用的公开文献检索与全文整理 skill。它不是一次性批量抓论文，而是把文献综述拆成可审阅、可批注、可迭代的 loop：先用 OpenAlex 做元数据 grounding，再由 agent 写 query plan；用户审阅批准后，再通过 OpenCLI 控制的已登录浏览器进入出版社页面检索、筛选、抓取网页全文，最后生成 reading notes、coverage review、overview 和 LLM Wiki 导出。
+这是一个给 agent 使用的文献检索与全文整理 skill。它不是一次性批量抓论文，而是把文献综述拆成可审阅、可批注、可迭代的 loop：先用 OpenAlex 做元数据 grounding，再由 agent 写 query plan；用户审阅批准后，通过 OpenCLI 控制的已登录浏览器进入出版社页面检索、筛选、抓取网页全文；最后生成 reading notes、coverage review、overview 和 LLM Wiki 导出。
 
-当前默认支持：
+默认支持：
 
 - OpenAlex 元数据 grounding
-- agent 内置浏览器或 localhost 页面中的 HTML query plan 审阅与现场批注
+- HTML query plan 审阅页，可在 agent 内置浏览器或 localhost 页面中现场批注
 - OpenCLI 加已登录 Chrome profile 的出版社检索与网页全文抓取
 - ScienceDirect/Elsevier、ACS、Wiley、Springer 的直连出版社网页路径
 - Science、Nature、arXiv 等 PDF 后续路径
@@ -21,22 +21,16 @@
 
 ## 核心流程
 
-```text
-研究问题
--> OpenAlex 宽检索 grounding
--> agent 写 query plan
--> HTML review page 在 agent 内置浏览器或 localhost 页面打开
--> 用户现场批注、修正、批准
--> OpenCLI 搜索出版社结果页
--> title / snippet / abstract 筛选
--> 抓取网页全文、章节、图表、表格
--> subquestion reading notes
--> 提取 high-value seeds、references、gaps
--> coverage review
--> 足够则结束；不足则生成下一轮 broad discovery query
--> 所有 subquestion 结束后，统一处理 references / PDF / manual holds
--> 生成 overview、_knowledge 和 LLM Wiki 导出
-```
+这个 loop 的重点不是自动跑完，而是让人和 agent 在关键节点反复校准：人负责目标、批注、取舍和最终判断；agent 负责 grounding、执行检索、整理证据、提出下一步。
+
+![Human-agent literature review loop](docs/assets/literature-loop.svg)
+
+核心协作方式很简单：
+
+- 人先给出综述目标和边界，agent 用 OpenAlex 做 grounding，并拆成 subquestions 与 query plan。
+- query plan 以 HTML 页面打开，人现场批注、删改、批准后，agent 才进入出版社页面检索和抓取。
+- agent 写 reading notes，并从正文中抽取 seeds、references、gaps、exact targets。
+- coverage 不足时，人和 agent 先复查这些线索，再生成下一轮 broad query；够用时才收束并导出 LLM Wiki。
 
 ## 设计重点
 
@@ -50,14 +44,15 @@
 
    ```text
    discovery -> abstract preview -> capture -> reading notes
-   -> seed / reference / gap extraction -> coverage review
+   -> seed / reference / gap / exact-target extraction
+   -> coverage review -> terminal or next iteration
    ```
 
    只有 coverage 足够，或者明确 `stop_with_gaps` / `blocked`，这个 subquestion 才算结束。
 
-3. **第二轮以后只让 broad discovery 进入新搜索**
+3. **coverage 不足时，先整理证据，再生成下一轮 query**
 
-   reference、seed、exact target 会被保存到 ledger，但不会被 Python 自动当成新 broad query 乱搜。下一轮真正进入出版社搜索的，只是经过 agent 解释和用户审阅的短英文 broad discovery query。
+   coverage 不足时，agent 先读本轮 reading notes、high-value seeds、recommended references、coverage gaps、manual holds 和用户批注，确认哪些是 exact target、哪些是 reference follow-up、哪些是缺口。然后再把这些线索转成下一轮短英文 `broad_discovery` query。只有经过 agent 解释和用户审阅的 broad query 才会进入新的出版社搜索。
 
 4. **Exact target 来自研究过程，并且必须复查**
 
@@ -65,17 +60,17 @@
 
    agent 需要先复查 exact target 的含义，必要时扩写成数据库、资源、论文标题、DOI、作者或 venue 级别的明确目标。OpenAlex 返回候选后，还要核对标题、DOI、venue 和上下文。未通过 `agent_openalex_verified=true` 的 exact target 不进入后续抓取队列。
 
-5. **四个核心出版社默认抓网页全文，不批量抓 PDF**
+5. **核心出版社默认抓网页全文，不批量抓 PDF**
 
    对 ScienceDirect/Elsevier、ACS、Wiley、Springer，默认路径是打开文章网页并抽取正文、章节、图表和表格，而不是一次性批量下载 PDF。网页 DOM 通常保留标题层级、摘要、图表说明、表格和引用信息，更适合 agent 后续写 reading notes、抽 seed、做 coverage review。批量 PDF 下载也更容易触发下载限制、验证码或临时封锁，所以 PDF 更适合作为补充路径，而不是主路径。
 
-6. **最后产物可以进入 LLM Wiki**
+6. **LLM Wiki 只接收筛选后的 raw sources**
 
-   导出包会把正文 Markdown、阅读笔记、图表、表格、query journey、subquestion overview、ledger 等整理成 LLM Wiki project export。文章级 source pages 交给 LLM Wiki ingest 生成，项目 wiki 本身只保留导航、过程骨架和 raw sources。导入端可参考 [nashsu/llm_wiki](https://github.com/nashsu/llm_wiki)。
+   导出包会把正文 Markdown、reading notes、图表、表格、query journey、subquestion overview、ledger 等整理成 LLM Wiki project export。文章级 source pages 交给 LLM Wiki ingest 生成，项目 wiki 本身只保留导航、过程骨架和 raw sources。导出前会跑 readnote 质量门：无全文/无 reading note 的 placeholder、低相关、误配、重复项不会进入 `raw/sources/articles/**/article.md`。
 
 ## 快速开始
 
-先准备本地运行环境，并把公开 skill 链接到你的 agent 技能目录。下面以 `~/.codex/skills` 为例；其他 agent 环境可以改成自己的 skill 目录。
+先准备本地运行环境，并把 skill 链接到你的 agent 技能目录。下面以 `~/.codex/skills` 为例；其他 agent 环境可以改成自己的 skill 目录。
 
 ```bash
 ./scripts/setup_loop_runtime.sh
@@ -125,7 +120,7 @@ agent 会先做 OpenAlex grounding，写出 query plan，然后生成 HTML revie
 
 ## PDF 与 MinerU
 
-四个核心出版社的主路径是网页全文抽取，不是 PDF 下载。PDF 主要用于三类情况：自动网页抓取拿不到全文、文章只适合 PDF 路径、用户已经手动补充 PDF。
+核心出版社的主路径是网页全文抽取，不是 PDF 下载。PDF 主要用于三类情况：自动网页抓取拿不到全文、文章只适合 PDF 路径、用户已经手动补充 PDF。
 
 当需要补充 PDF 时，先生成 `_knowledge/`：
 
@@ -178,7 +173,16 @@ python literature-loop-capture/scripts/llm_wiki_export.py \
     provenance/
 ```
 
-`raw/sources/articles/**/article.md` 是 LLM Wiki ingest 的主要输入。PDF 不再复制进 LLM Wiki；抓取或 MinerU 规范化后的 Markdown 才是导入源。图像和表格放在 `raw/assets/`，并在 article Markdown 中链接或嵌入。
+`raw/sources/articles/**/article.md` 是 LLM Wiki ingest 的主要输入。PDF 不复制进 LLM Wiki；抓取或 MinerU 规范化后的 Markdown 才是导入源。图像和表格放在 `raw/assets/`，并在 article Markdown 中链接或嵌入。`article.md` 会保留正文和 reading-note context，但不会追加完整 References section；引用文件留在 provenance 和 dossier ledgers 里做审计。
+
+导出前必须跑 readnote 质量门：
+
+- 有全文但没 `reading-note-zh.md` 的文章，先交给对应 subquestion agent 补笔记。
+- 没全文也没 reading note 的 placeholder 记录到 blocker ledger，不进入 raw sources。
+- 只保留 reading note 明确判定值得精读且评分达标的文章。
+- 剔除误配、低相关、off-topic、重复 DOI/title 的条目。
+- 写出 `readnote-curation-ledger.csv` 和 `raw/sources/dossier/root/readnote-curation-ledger.md`。
+- 验证 manifest 无悬空路径，且 article rows 数量等于实际 `article.md` 数量。
 
 ## 边界
 

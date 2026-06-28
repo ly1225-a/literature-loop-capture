@@ -1,0 +1,237 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="640" viewBox="0 0 960 640" role="img" aria-labelledby="title desc">
+  <title id="title">Human-agent literature review loop</title>
+  <desc id="desc">An animated workflow showing how a human reviewer and an agent collaborate through query planning, review, capture, reading, evidence extraction, coverage decision, and iteration.</desc>
+  <style>
+    :root {
+      color-scheme: light;
+    }
+    .bg {
+      fill: #f8fafc;
+    }
+    .panel {
+      fill: #ffffff;
+      stroke: #d9e2ec;
+      stroke-width: 1.2;
+      filter: url(#shadow);
+    }
+    .human {
+      stroke: #0f766e;
+    }
+    .agent {
+      stroke: #2563eb;
+    }
+    .joint {
+      stroke: #7c3aed;
+    }
+    .label {
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      fill: #0f172a;
+      font-size: 17px;
+      font-weight: 700;
+    }
+    .detail {
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      fill: #475569;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .centerTitle {
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      fill: #111827;
+      font-size: 23px;
+      font-weight: 800;
+    }
+    .centerNote {
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      fill: #475569;
+      font-size: 14px;
+      font-weight: 550;
+    }
+    .tag {
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .04em;
+    }
+    .tagHuman {
+      fill: #0f766e;
+    }
+    .tagAgent {
+      fill: #2563eb;
+    }
+    .tagJoint {
+      fill: #7c3aed;
+    }
+    .loop {
+      fill: none;
+      stroke: #2563eb;
+      stroke-width: 5;
+      stroke-linecap: round;
+      stroke-dasharray: 16 16;
+      animation: flow 8s linear infinite;
+      opacity: .78;
+    }
+    .return {
+      fill: none;
+      stroke: #7c3aed;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-dasharray: 9 12;
+      animation: flowBack 5s linear infinite;
+      opacity: .72;
+    }
+    .stepArrow {
+      fill: none;
+      stroke: #334155;
+      stroke-width: 2.4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: .72;
+    }
+    .reviewArrow {
+      fill: none;
+      stroke: #7c3aed;
+      stroke-width: 3.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 8 8;
+      animation: flowBack 5s linear infinite;
+      opacity: .88;
+    }
+    .passArrow {
+      fill: none;
+      stroke: #0f766e;
+      stroke-width: 9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      filter: url(#softGlow);
+    }
+    .passLabel {
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      fill: #0f766e;
+      font-size: 15px;
+      font-weight: 800;
+    }
+    .passStep {
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      fill: #0f172a;
+      font-size: 16px;
+      font-weight: 750;
+    }
+    .dot {
+      fill: #2563eb;
+      animation: pulse 2.8s ease-in-out infinite;
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+    .dotHuman {
+      fill: #0f766e;
+    }
+    .dotJoint {
+      fill: #7c3aed;
+    }
+    .d1 { animation-delay: .2s; }
+    .d2 { animation-delay: .6s; }
+    .d3 { animation-delay: 1s; }
+    .d4 { animation-delay: 1.4s; }
+    .d5 { animation-delay: 1.8s; }
+    .d6 { animation-delay: 2.2s; }
+    @keyframes flow {
+      from { stroke-dashoffset: 0; }
+      to { stroke-dashoffset: -64; }
+    }
+    @keyframes flowBack {
+      from { stroke-dashoffset: 0; }
+      to { stroke-dashoffset: 63; }
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: .78; }
+      50% { transform: scale(1.55); opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .loop, .return, .dot {
+        animation: none;
+      }
+    }
+  </style>
+  <defs>
+    <filter id="shadow" x="-20%" y="-30%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#0f172a" flood-opacity=".10"/>
+    </filter>
+    <filter id="softGlow" x="-15%" y="-120%" width="130%" height="340%">
+      <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#14b8a6" flood-opacity=".25"/>
+    </filter>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrowPurple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrowSlate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f766e"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="960" height="640" rx="24"/>
+  <path class="loop" marker-end="url(#arrowBlue)" d="M 480 74 C 668 74 828 154 828 260 C 828 366 668 446 480 446 C 292 446 132 366 132 260 C 132 154 292 74 480 74"/>
+  <path class="return" marker-end="url(#arrowPurple)" d="M 688 354 C 618 306 600 244 640 184 C 585 213 506 212 414 186"/>
+  <path class="stepArrow" marker-end="url(#arrowSlate)" d="M 624 104 C 658 116 681 132 701 156"/>
+  <path class="stepArrow" marker-end="url(#arrowSlate)" d="M 772 234 L 772 282"/>
+  <path class="stepArrow" marker-end="url(#arrowSlate)" d="M 704 382 C 665 406 642 418 626 428"/>
+  <path class="stepArrow" marker-end="url(#arrowSlate)" d="M 326 444 C 302 426 286 402 278 374"/>
+  <path class="stepArrow" marker-end="url(#arrowSlate)" d="M 190 286 L 190 238"/>
+  <path class="reviewArrow" marker-end="url(#arrowPurple)" d="M 312 184 C 420 126 546 132 648 178"/>
+  <text class="detail" x="422" y="137">不足：复查线索，再回到 query plan</text>
+
+  <rect class="panel human" x="326" y="36" width="308" height="84" rx="18"/>
+  <text class="tag tagHuman" x="352" y="63">HUMAN</text>
+  <text class="label" x="352" y="88">提出综述目标</text>
+  <text class="detail" x="352" y="109">范围、年份、出版社、偏好</text>
+  <circle class="dot dotHuman d1" cx="608" cy="64" r="6"/>
+
+  <rect class="panel agent" x="648" y="142" width="246" height="92" rx="18"/>
+  <text class="tag tagAgent" x="674" y="169">AGENT</text>
+  <text class="label" x="674" y="194">Grounding + Plan</text>
+  <text class="detail" x="674" y="215">OpenAlex 术语、subquestions、query families</text>
+  <circle class="dot d2" cx="868" cy="170" r="6"/>
+
+  <rect class="panel joint" x="650" y="286" width="246" height="96" rx="18"/>
+  <text class="tag tagJoint" x="676" y="313">HUMAN + AGENT</text>
+  <text class="label" x="676" y="338">审阅 query plan</text>
+  <text class="detail" x="676" y="359">批注、拆分、删改、批准</text>
+  <circle class="dot dotJoint d3" cx="870" cy="314" r="6"/>
+
+  <rect class="panel agent" x="326" y="400" width="308" height="84" rx="18"/>
+  <text class="tag tagAgent" x="352" y="427">AGENT + OPENCLI</text>
+  <text class="label" x="352" y="452">检索、抓取、精读</text>
+  <text class="detail" x="352" y="473">网页正文、图表、reading-note-zh.md</text>
+  <circle class="dot d4" cx="608" cy="428" r="6"/>
+
+  <rect class="panel agent" x="66" y="286" width="246" height="96" rx="18"/>
+  <text class="tag tagAgent" x="92" y="313">AGENT</text>
+  <text class="label" x="92" y="338">抽取证据线索</text>
+  <text class="detail" x="92" y="359">seeds、references、gaps、exact targets</text>
+  <circle class="dot d5" cx="286" cy="314" r="6"/>
+
+  <rect class="panel joint" x="66" y="142" width="246" height="92" rx="18"/>
+  <text class="tag tagJoint" x="92" y="169">HUMAN + AGENT</text>
+  <text class="label" x="92" y="194">Coverage 判断</text>
+  <text class="detail" x="92" y="215">够用就收束，不够先复查线索</text>
+  <circle class="dot dotJoint d6" cx="286" cy="170" r="6"/>
+
+  <rect x="350" y="176" width="260" height="168" rx="28" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2" filter="url(#shadow)"/>
+  <text class="centerTitle" x="480" y="225" text-anchor="middle">Evidence-first loop</text>
+  <text class="centerNote" x="480" y="255" text-anchor="middle">人做取舍，agent 做执行与整理</text>
+  <text class="centerNote" x="480" y="283" text-anchor="middle">不足时先复查 exact / reference / gap</text>
+  <text class="centerNote" x="480" y="311" text-anchor="middle">再生成下一轮 broad query</text>
+
+  <text class="passLabel" x="100" y="544">全部 subquestions 评分合格后</text>
+  <path class="passArrow" marker-end="url(#arrowGreen)" d="M 102 570 H 822"/>
+  <text class="passStep" x="188" y="598" text-anchor="middle">PDF 补充抓取</text>
+  <text class="passStep" x="386" y="598" text-anchor="middle">Overview</text>
+  <text class="passStep" x="576" y="598" text-anchor="middle">_knowledge 预览</text>
+  <text class="passStep" x="760" y="598" text-anchor="middle">LLM Wiki 导出</text>
+</svg>
