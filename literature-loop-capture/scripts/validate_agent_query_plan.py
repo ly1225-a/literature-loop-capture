@@ -62,16 +62,41 @@ def query_overlap(left: str, right: str) -> float:
     return len(left_tokens & right_tokens) / len(left_tokens | right_tokens)
 
 
+def normalized_query_key(query: str) -> str:
+    return " ".join(sorted(query_tokens(query)))
+
+
+def contains_year_filter_residue(query: str) -> bool:
+    text = common.clean(query).lower()
+    if re.search(r"\byears?\b", text):
+        return True
+    return bool(re.search(r"\b20\d{2}\s*(?:[-–—]|to|through|until|and)\s*20\d{2}\b", text))
+
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise SystemExit(message)
 
 
-def normalize_query_item(item: Any, subquestion_id: str, query_index: int) -> dict[str, Any]:
+def normalize_query_item(
+    item: Any,
+    subquestion_id: str,
+    query_index: int,
+    *,
+    forbidden_probe_keys: set[str],
+) -> dict[str, Any]:
     require(isinstance(item, dict), f"{subquestion_id} query {query_index} must be an object, not a bare string.")
     query = common.clean(item.get("query"))
     require(query, f"{subquestion_id} query {query_index} is missing query.")
     require(not common.contains_cjk(query), f"{subquestion_id} query must be English: {query}")
+    require(
+        not contains_year_filter_residue(query),
+        f"{subquestion_id} query `{query}` contains year filter residue. Keep year limits in --year-start/--year-end, not query text.",
+    )
+    require(
+        normalized_query_key(query) not in forbidden_probe_keys,
+        f"{subquestion_id} query `{query}` copies an OpenAlex probe query. Probe queries are grounding prompts, not final publisher queries.",
+    )
     require(discovery.is_simple_publisher_query(query), f"{subquestion_id} query is not publisher-friendly: {query}")
     for field in ["anchor_type", "expected_result_type", "non_redundancy_rationale"]:
         require(common.clean(item.get(field)), f"{subquestion_id} query `{query}` missing {field}.")
@@ -88,7 +113,7 @@ def normalize_query_item(item: Any, subquestion_id: str, query_index: int) -> di
     }
 
 
-def normalize_subquestion(item: Any, index: int) -> dict[str, Any]:
+def normalize_subquestion(item: Any, index: int, *, forbidden_probe_keys: set[str]) -> dict[str, Any]:
     require(isinstance(item, dict), f"subquestion {index} must be an object.")
     subquestion_id = common.clean(item.get("subquestion_id") or item.get("id"))
     require(subquestion_id, f"subquestion {index} missing subquestion_id.")
@@ -97,7 +122,12 @@ def normalize_subquestion(item: Any, index: int) -> dict[str, Any]:
     queries = item.get("queries")
     require(isinstance(queries, list) and queries, f"{subquestion_id} must include at least one query object.")
     normalized_queries = [
-        normalize_query_item(query_item, subquestion_id, query_index)
+        normalize_query_item(
+            query_item,
+            subquestion_id,
+            query_index,
+            forbidden_probe_keys=forbidden_probe_keys,
+        )
         for query_index, query_item in enumerate(queries, start=1)
     ]
     return {
@@ -154,7 +184,15 @@ def validate_payload(payload: dict[str, Any], grounding: dict[str, Any]) -> dict
     require(grounding_notes and "AGENT REQUIRED" not in grounding_notes, "agent query plan must include non-placeholder grounding_notes.")
     subquestions_raw = payload.get("subquestions")
     require(isinstance(subquestions_raw, list) and subquestions_raw, "agent query plan must include subquestions.")
-    subquestions = [normalize_subquestion(item, index) for index, item in enumerate(subquestions_raw, start=1)]
+    forbidden_probe_keys = {
+        normalized_query_key(query)
+        for query in grounding.get("probe_queries") or []
+        if normalized_query_key(query)
+    }
+    subquestions = [
+        normalize_subquestion(item, index, forbidden_probe_keys=forbidden_probe_keys)
+        for index, item in enumerate(subquestions_raw, start=1)
+    ]
     enforce_query_diversity(subquestions)
     exploration_sources = payload.get("exploration_sources")
     if not isinstance(exploration_sources, list):

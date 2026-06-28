@@ -26,7 +26,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_DIR = SCRIPT_DIR.parent
 PROJECT_ROOT = SKILL_DIR.parent
 
-DEFAULT_CLAIM = "How to construct a food flavor knowledge graph?"
+DEFAULT_CLAIM = "What is the research landscape for the target topic?"
 DEFAULT_REVIEW_OBJECTIVE = "construction-method route"
 DEFAULT_YEAR_START = 2021
 DEFAULT_YEAR_END = 2026
@@ -177,11 +177,11 @@ def normalize_claim_from_request(request: str, explicit_claim: str = "") -> str:
     if explicit_claim:
         return explicit_claim
     text = clean(request)
-    text = re.sub(r"\b20\d{2}\s*[-–]\s*20\d{2}\b", " ", text)
+    text = strip_year_filters(text)
     text = re.sub(r"\bpublishers?\b\s*[:：]?\s*[^.。;；]+", " ", text, flags=re.IGNORECASE)
     text = clean(text.strip(" ,;；.。"))
     text = re.sub(r"^(please\s+)?(review|study|research|investigate|analyze|analyse)\s+", "", text, flags=re.IGNORECASE)
-    text = clean(text)
+    text = clean(text.strip(" ,;；.。\"'“”"))
     if not text:
         return DEFAULT_CLAIM
     text = text[0].upper() + text[1:]
@@ -190,8 +190,35 @@ def normalize_claim_from_request(request: str, explicit_claim: str = "") -> str:
     return text
 
 
+YEAR_RANGE_PATTERN = re.compile(
+    r"\b(?:publication\s+)?years?\s*[:：]?\s*(?:from\s+)?(20\d{2})\s*(?:[-–—]|to|through|until|and)\s*(20\d{2})\b"
+    r"|\b(?:from|between)\s+(20\d{2})\s*(?:[-–—]|to|through|until|and)\s*(20\d{2})\b"
+    r"|\b(20\d{2})\s*[-–—]\s*(20\d{2})\b",
+    flags=re.IGNORECASE,
+)
+
+
+def extract_year_window_from_request(request: str) -> tuple[int, int] | None:
+    match = YEAR_RANGE_PATTERN.search(clean(request))
+    if not match:
+        return None
+    groups = [value for value in match.groups() if value]
+    if len(groups) < 2:
+        return None
+    start, end = int(groups[0]), int(groups[1])
+    if start > end:
+        start, end = end, start
+    return start, end
+
+
+def strip_year_filters(text: str) -> str:
+    text = YEAR_RANGE_PATTERN.sub(" ", clean(text))
+    text = re.sub(r"\b(?:publication\s+)?years?\b\s*[:：]?", " ", text, flags=re.IGNORECASE)
+    return clean(text)
+
+
 def default_run_dir(root: Path = PROJECT_ROOT, claim: str = DEFAULT_CLAIM) -> Path:
-    return root / "LiteratureCaptures" / f"{safe_slug(claim, 'food-flavor-kg')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    return root / "LiteratureCaptures" / f"{safe_slug(claim, 'literature-review')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
 
 def state_path(run_dir: Path) -> Path:
@@ -631,7 +658,7 @@ def command_for_stage(run_dir: Path, state: dict[str, Any], stage: str) -> list[
         if amendment:
             command.extend(["--approved-query-plan", str(amendment)])
         else:
-            command.append("--use-existing-amendment")
+            return []
         return command
     if stage == "reference_followup":
         return [
@@ -1034,7 +1061,8 @@ def openalex_overview_html(preview: dict[str, Any]) -> str:
           <p>{publisher_focus}</p>
         </div>
         <div>
-          <h3>Broad Probe Queries</h3>
+          <h3>OpenAlex Grounding Probes</h3>
+          <p class="muted">Not final publisher queries.</p>
           <ul>{probe_queries}</ul>
         </div>
       </div>
@@ -1212,7 +1240,7 @@ def render_query_plan_review_html(run_dir: Path) -> str:
   <main>
     <section class="panel">
       <h2>How To Comment</h2>
-      <p>If a subquestion, seed, or query is unsatisfactory, tell Codex the target and the correction. Codex must record it with <code>review-plan --severity correction</code>, run a targeted OpenAlex-only re-grounding pass for that concern, update <code>agent-query-plan.json</code>, validate, rebuild the preview, and refresh this page before approval.</p>
+      <p>If a subquestion, seed, or query is unsatisfactory, tell the agent the target and the correction. The agent must record it with <code>review-plan --severity correction</code>, run a targeted OpenAlex-only re-grounding pass for that concern, update <code>agent-query-plan.json</code>, validate, rebuild the preview, and refresh this page before approval.</p>
     </section>
     {overview}
     <section class="panel">
@@ -1264,10 +1292,10 @@ def review_plan(
     payload = {
         "review_json": str(query_plan_review_path(run_dir)),
         "review_html": str(html_path),
-        "codex_browser_instruction": (
+        "agent_browser_instruction": (
             "Do not open this file with the user's Google Chrome/OpenCLI profile. "
             "Serve the run directory on 127.0.0.1 and open query-plan-review.html "
-            "in the Codex in-app browser."
+            "in the agent in-app browser."
         ),
         "open_corrections": len(open_corrections),
         "open_correction_ids": [clean(item.get("id")) for item in open_corrections],
@@ -1371,13 +1399,18 @@ def run_plan(args: argparse.Namespace) -> int:
     if request_file:
         original_request = clean(Path(request_file).read_text(encoding="utf-8"))
     claim = normalize_claim_from_request(original_request, getattr(args, "claim", ""))
+    requested_year_window = extract_year_window_from_request(original_request)
+    year_start = args.year_start
+    year_end = args.year_end
+    if requested_year_window and (args.year_start, args.year_end) == (DEFAULT_YEAR_START, DEFAULT_YEAR_END):
+        year_start, year_end = requested_year_window
     structured_publishers, unsupported_publishers = extract_publishers(original_request, getattr(args, "publishers", ""))
     config = LoopConfig(
         run_dir=run_dir,
         claim=claim,
         original_request=original_request,
-        year_start=args.year_start,
-        year_end=args.year_end,
+        year_start=year_start,
+        year_end=year_end,
         subquestion_count=args.rounds,
         max_queries_per_subquestion=args.max_queries,
         structured_publishers=structured_publishers,
@@ -1391,9 +1424,9 @@ def run_plan(args: argparse.Namespace) -> int:
         "--rounds",
         str(args.rounds),
         "--year-start",
-        str(args.year_start),
+        str(year_start),
         "--year-end",
-        str(args.year_end),
+        str(year_end),
         "--grounding-notes",
         args.grounding_notes,
         "--exploration-source",
@@ -1461,7 +1494,7 @@ def main() -> int:
     plan.add_argument("--max-queries", type=int, default=DEFAULT_MAX_QUERIES_PER_SUBQUESTION)
     plan.add_argument("--year-start", type=int, default=DEFAULT_YEAR_START)
     plan.add_argument("--year-end", type=int, default=DEFAULT_YEAR_END)
-    plan.add_argument("--grounding-notes", default="Construction-method validation run for food flavor knowledge graph literature.")
+    plan.add_argument("--grounding-notes", default="Literature review validation run for the target topic.")
     plan.add_argument(
         "--exploration-source",
         default="OpenAlex|https://openalex.org|metadata grounding",
@@ -1486,7 +1519,7 @@ def main() -> int:
     review.add_argument(
         "--open",
         action="store_true",
-        help="Deprecated no-op. Do not use the system browser; open the review via Codex in-app browser on localhost.",
+        help="Deprecated no-op. Do not use the system browser; open the review via the agent in-app browser on localhost.",
     )
 
     approve = sub.add_parser("approve", help="Mark a human-gated stage complete.")

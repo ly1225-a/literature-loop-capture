@@ -78,7 +78,7 @@ def short_query(text: str) -> str:
 
 def classify_seed(text: str) -> str:
     lowered = clean(text).lower()
-    if any(keyword in lowered for keyword in ["ontology", "ontolog", "foodon", "taxonomy"]):
+    if any(keyword in lowered for keyword in ["ontology", "ontolog", "taxonomy", "controlled vocabulary"]):
         return "ontology"
     if any(keyword in lowered for keyword in ["database", "dataset", "resource", "db", "registry", "repository"]):
         return "resource"
@@ -120,7 +120,7 @@ def _base_row(article_dir: Path, source_type: str, seed_text: str) -> dict[str, 
         "why_it_matters": "",
         "duplicate_risk": "",
         "proposed_short_query": short_query(seed_text),
-        "recommended_action": "",
+        "recommended_action": "needs_agent_review",
     }
 
 
@@ -154,7 +154,7 @@ def reference_rows(article_dir: Path) -> list[dict[str, Any]]:
         row.update({
             "doi": clean(item.get("doi")),
             "why_it_matters": clean(item.get("reason") or item.get("rationale")),
-            "recommended_action": "reference_followup",
+            "recommended_action": "reference_followup_candidate",
         })
         rows.append(row)
     return rows
@@ -165,7 +165,7 @@ def _reading_note_rows(article_dir: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for seed_text in note_seed_lines(note_text):
         row = _base_row(article_dir, "reading_note", seed_text)
-        row["recommended_action"] = "query_iteration"
+        row["recommended_action"] = "query_iteration_candidate"
         rows.append(row)
     return rows
 

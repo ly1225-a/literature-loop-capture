@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import os
 from datetime import datetime
@@ -405,36 +404,10 @@ def evaluate_loop_state(
 
 
 def write_next_queries_csv(run_dir: Path, subquestion_id: str, output_path: Path | None = None) -> Path:
-    coverage = read_coverage_item(run_dir, subquestion_id)
-    next_queries = normalize_next_queries(coverage.get("next_simple_queries"))
-    if not next_queries:
-        raise SystemExit("No valid next_simple_queries in coverage review.")
-    output_path = output_path or (loop_state_dir(run_dir, subquestion_id, latest_iteration_id(run_dir, subquestion_id)) / "next-simple-queries.csv")
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    fields = [
-        "subquestion_id", "subquestion_slug", "subquestion_group_slug",
-        "subquestion_group_title", "subquestion_text", "query_family",
-        "publisher", "previous_query", "next_query", "reason",
-    ]
-    publishers = coverage.get("publishers") if isinstance(coverage.get("publishers"), list) else ["elsevier", "acs", "wiley", "springer"]
-    with output_path.open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields)
-        writer.writeheader()
-        for query in next_queries:
-            for publisher in publishers:
-                writer.writerow({
-                    "subquestion_id": subquestion_id,
-                    "subquestion_slug": clean(coverage.get("subquestion_slug")),
-                    "subquestion_group_slug": clean(coverage.get("subquestion_group_slug")),
-                    "subquestion_group_title": clean(coverage.get("subquestion_group_title")),
-                    "subquestion_text": clean(coverage.get("claim_subquestion") or coverage.get("subquestion_text")),
-                    "query_family": clean(coverage.get("query_family")) or "agent-iterated",
-                    "publisher": clean(publisher).lower(),
-                    "previous_query": "",
-                    "next_query": query,
-                    "reason": clean(coverage.get("coverage_rationale")),
-                })
-    return output_path
+    raise SystemExit(
+        "Direct next_simple_queries export is disabled. Write query-rationale-review.json, "
+        "run query_iteration_review.py, and continue from the approved query-plan-amendment.json."
+    )
 
 
 def main() -> int:
@@ -445,7 +418,6 @@ def main() -> int:
     parser.add_argument("--coverage-threshold", type=int, default=DEFAULT_COVERAGE_THRESHOLD)
     parser.add_argument("--no-openalex-audit-required", dest="require_openalex_audit", action="store_false")
     parser.add_argument("--refresh-openalex-audit", action="store_true")
-    parser.add_argument("--write-next-queries", action="store_true")
     parser.add_argument("--state-json", type=Path)
     parser.set_defaults(require_openalex_audit=True)
     args = parser.parse_args()
@@ -467,8 +439,6 @@ def main() -> int:
         coverage_threshold=args.coverage_threshold,
         require_openalex_audit=args.require_openalex_audit,
     )
-    if args.write_next_queries and state.get("status") == "ready_for_query_iteration":
-        state["next_queries_csv"] = str(write_next_queries_csv(args.run_dir, args.subquestion_id))
     state_json = json.dumps(state, ensure_ascii=False, indent=2)
     print(state_json)
     if args.state_json:

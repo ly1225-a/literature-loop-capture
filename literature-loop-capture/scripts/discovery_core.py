@@ -532,37 +532,6 @@ def openalex_grounding_concept_hints(claim: str) -> list[dict[str, Any]]:
         "graph evaluation",
         "validation metric",
     ])
-    if "food" in low or "flavor" in low or "flavour" in low:
-        resource_terms = unique_ordered([
-            "flavor molecule",
-            "flavor compound",
-            "flavor molecule database",
-            "ingredient",
-            "natural source",
-            "sensory response",
-            "physicochemical property",
-            *resource_terms,
-        ])
-        schema_terms = unique_ordered([
-            "food chemical graph",
-            "recipe ingredient graph",
-            "food ontology",
-            "chemical food relation",
-            *schema_terms,
-        ])
-        method_terms = unique_ordered([
-            "food chemical graph embedding",
-            "recipe relation extraction",
-            "metapath2vec",
-            *method_terms,
-        ])
-        evaluation_terms = unique_ordered([
-            "food pairing",
-            "food pairing recommendation",
-            "food representation",
-            "food clustering",
-            *evaluation_terms,
-        ])
     return [
         {
             "label": "resource vocabulary",
@@ -596,13 +565,6 @@ def openalex_grounding_probe_queries(claim: str, limit: int = 14) -> list[str]:
         " ".join(core[:6]),
         " ".join(core[:4]),
     ]
-    if "food" in low or "flavor" in low or "flavour" in low:
-        probes.extend([
-            "flavor molecule database",
-            "food chemical graph",
-            "food pairing recommendation",
-            "recipe ingredient graph",
-        ])
     for hint in openalex_grounding_concept_hints(claim):
         for term in hint.get("terms") or []:
             text = normalize_ws(str(term))
@@ -996,15 +958,6 @@ def dedupe_queries_across_plans(plans: list[QueryPlan], max_queries: int) -> lis
             unique_queries.append(query)
             if len(unique_queries) >= max_queries:
                 break
-        if not unique_queries and plan.queries:
-            base_words = query_words(plan.queries[0])[: max(1, PUBLISHER_QUERY_MAX_WORDS - 1)]
-            for focus in FAMILY_FOCUS_TERMS.get(canonical_query_family(plan.query_family), []):
-                fallback = normalize_ws(" ".join([*base_words, focus]))
-                key = fallback.lower()
-                if key and key not in seen and is_simple_publisher_query(fallback):
-                    seen.add(key)
-                    unique_queries.append(fallback)
-                    break
         plan.queries = unique_queries
     return plans
 
@@ -1212,47 +1165,6 @@ def openalex_grounding_audit(claim: str, requested: bool = True, max_terms: int 
     return audit
 
 
-def dynamic_subquestion_specs(claim: str, ranked_terms: list[str], rounds: int) -> list[tuple[str, str, str, str]]:
-    specs = [
-        (
-            "definition-landscape",
-            "What major papers, reviews, resources, terms, and evidence clusters define this topic?",
-            "landscape",
-            "Landscape and Definitions",
-        ),
-        (
-            "data-resources",
-            "Which datasets, databases, benchmarks, corpora, tools, or reusable resources define the evidence base?",
-            "resources",
-            "Resources and Data",
-        ),
-        (
-            "methods-models",
-            "Which methods, models, algorithms, workflows, or construction processes are used to address this topic?",
-            "methods",
-            "Methods and Models",
-        ),
-        (
-            "evaluation-benchmarks",
-            "Which evaluation evidence, validation methods, benchmarks, comparisons, or metrics support confidence?",
-            "evaluation",
-            "Evaluation and Benchmarks",
-        ),
-        (
-            "applications-cases",
-            "Which applications, use cases, deployments, or domain practices show how this topic is used?",
-            "applications",
-            "Applications and Cases",
-        ),
-        (
-            "limitations-gaps",
-            "Which limitations, open problems, contradictions, and future directions remain unresolved?",
-            "limitations",
-            "Limitations and Gaps",
-        ),
-    ]
-    return specs[: max(1, rounds)]
-
 
 def build_query_plans(
     claim: str,
@@ -1301,22 +1213,11 @@ def build_query_plans(
         ]
         return attach_query_provenance(assign_subquestion_ids(plans), claim)
 
-    terms = core_terms(claim)
-    expanded_terms = domain_query_expansions(claim)
-    if expanded_terms:
-        terms = unique_ordered(expanded_terms + terms)
-    if use_openalex_grounding:
-        evidence_terms = openalex_work_evidence_terms(openalex_works)
-        terms = unique_ordered(terms + (openalex_terms if openalex_terms is not None else openalex_grounding_terms(claim)) + evidence_terms)
-    else:
-        evidence_terms = []
-    ranked_terms = ranked_query_terms(terms, claim, 12)
-    plans = [
-        make_plan(index, family, subquestion, f"{index:02d}_{group_slug}", group_title)
-        for index, (family, subquestion, group_slug, group_title)
-        in enumerate(dynamic_subquestion_specs(claim, ranked_terms, rounds), start=1)
-    ]
-    return attach_query_provenance(assign_subquestion_ids(dedupe_queries_across_plans(plans[: max(1, rounds)], max_queries)), claim)
+    raise SystemExit(
+        "Python cannot author subquestions for a broad claim. Run openalex_grounding.py, "
+        "have the agent write agent-query-plan.json, validate it, build query-plan-preview.json, "
+        "and pass that file as --approved-query-plan."
+    )
 
 
 def search_urls_for_query(

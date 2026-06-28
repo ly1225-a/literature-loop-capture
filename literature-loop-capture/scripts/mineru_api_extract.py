@@ -89,7 +89,7 @@ def build_batch_files(run_root: Path, article_dirs: list[Path]) -> list[BatchFil
         rel = article_dir.resolve().relative_to(run_root.resolve()).as_posix()
         digest = hashlib.sha1(rel.encode("utf-8")).hexdigest()[:10]
         name = f"{slug(rel.replace('/', '-'), 80)}-{digest}.pdf"
-        data_id = f"codex_{digest}"
+        data_id = f"agent_{digest}"
         rows.append(
             BatchFile(
                 article_dir=article_dir,

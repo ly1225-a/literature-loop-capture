@@ -322,7 +322,13 @@ def main() -> int:
 
     for group in recommendations.get("groups") or []:
         validate_phase_decision(group, recommendations)
-        decision = normalize_decision(group.get("decision")) or "needs_abstract_preview"
+        decision = normalize_decision(group.get("decision"))
+        if not decision:
+            raise SystemExit(
+                "query-refinement group has blank decision; the responsible agent must explicitly choose "
+                "needs_abstract_preview, iterate_query, stop_low_yield, or ready_to_capture in the correct review phase. "
+                f"group={clean(group.get('group_id')) or '<unknown>'}"
+            )
         if decision not in ALLOWED_DECISIONS:
             raise SystemExit(f"Unknown query refinement decision: {decision}")
         group["decision"] = decision

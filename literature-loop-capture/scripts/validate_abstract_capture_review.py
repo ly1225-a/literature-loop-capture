@@ -89,7 +89,7 @@ def validate_review(review_path: Path, abstract_preview_csv: Path) -> list[str]:
         issues.append("review_mode must be subagent for formal abstract-capture review")
     if clean(review.get("review_phase")) != "abstract_capture_review":
         issues.append("review_phase must be abstract_capture_review")
-    if not clean(review.get("agent_id")) or clean(review.get("agent_id")) in {"codex-main", "main"}:
+    if not clean(review.get("agent_id")) or clean(review.get("agent_id")) in {"main", "main-agent"}:
         issues.append("agent_id must identify the reviewing subagent")
     if "fallback" in clean(review.get("review_mode")).lower() or clean(review.get("fallback_reason")):
         issues.append("main_agent_fallback is not valid for this subagent review file")

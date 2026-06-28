@@ -141,7 +141,7 @@ def render_openalex_grounding(openalex_audit: dict[str, Any]) -> str:
     probes = openalex_audit.get("probe_queries") or []
     if probes:
         lines.extend([
-            "## Broad Probe Queries",
+            "## OpenAlex Grounding Probes (not publisher queries)",
             "",
             "These OpenAlex metadata probes are intentionally broad and are not final publisher queries.",
             "",

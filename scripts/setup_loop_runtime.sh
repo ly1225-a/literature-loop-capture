@@ -10,8 +10,12 @@ if ! "${ROOT}/.venv/bin/python" -m pip install --upgrade pip; then
 fi
 "${ROOT}/.venv/bin/python" -m pip install -r "${ROOT}/requirements.txt"
 
-mkdir -p "${HOME}/.codex/skills"
-ln -sfn "${ROOT}/literature-loop-capture" "${HOME}/.codex/skills/literature-loop-capture"
-
 echo "runtime_python=${ROOT}/.venv/bin/python"
-echo "skill_symlink=${HOME}/.codex/skills/literature-loop-capture"
+if [[ -n "${AGENT_SKILL_DIR:-}" ]]; then
+  mkdir -p "${AGENT_SKILL_DIR}"
+  ln -sfn "${ROOT}/literature-loop-capture" "${AGENT_SKILL_DIR}/literature-loop-capture"
+  echo "skill_symlink=${AGENT_SKILL_DIR}/literature-loop-capture"
+else
+  echo "skill_symlink=not_created"
+  echo "set AGENT_SKILL_DIR to create a skill symlink"
+fi

@@ -70,12 +70,12 @@
 
 ## 快速开始
 
-先准备本地运行环境，并把 skill 链接到你的 agent 技能目录。下面以 `~/.codex/skills` 为例；其他 agent 环境可以改成自己的 skill 目录。
+先准备本地运行环境，并把 skill 链接到你的 agent 技能目录。下面用 `<agent-skill-dir>` 作为占位；请替换成你自己的 skill 目录。
 
 ```bash
+export AGENT_SKILL_DIR="<agent-skill-dir>"
 ./scripts/setup_loop_runtime.sh
 source .venv/bin/activate
-ln -sfn "$PWD/literature-loop-capture" "$HOME/.codex/skills/literature-loop-capture"
 ```
 
 Claude Code 用户可以参考 `.claude/commands/literature-loop-capture.md`，让 Claude 读取 `literature-loop-capture/SKILL.md` 并按同一套 loop 执行。

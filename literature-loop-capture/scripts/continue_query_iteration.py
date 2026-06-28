@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Continue discovery from reviewer-proposed next-simple-queries.csv rows."""
+"""Continue discovery from a user-approved query-plan amendment."""
 
 from __future__ import annotations
 
@@ -33,14 +33,10 @@ def load_json(path: Path, fallback: Any) -> Any:
 
 
 def latest_next_queries(run_dir: Path) -> Path:
-    candidates = sorted(
-        run_dir.glob("query-refinement/iteration-*/applied-decisions/next-simple-queries.csv"),
-        key=lambda path: path.stat().st_mtime,
-        reverse=True,
+    raise SystemExit(
+        "Direct next-simple-queries.csv iteration is disabled. "
+        "Use a user-approved query-plan-amendment.json from query_iteration_review.py."
     )
-    if not candidates:
-        raise SystemExit("No next-simple-queries.csv found. Run apply_query_decisions.py first.")
-    return candidates[0]
 
 
 def question_text(run_dir: Path) -> str:
@@ -62,78 +58,11 @@ def query_round_index(run_dir: Path) -> dict[str, dict[str, Any]]:
 
 
 def build_plan_amendment(run_dir: Path, rows: list[dict[str, str]], args: argparse.Namespace) -> Path:
-    output_dir = run_dir / "query-refinement" / f"iteration-{args.iteration:02d}"
-    path = output_dir / "query-plan-amendment.json"
-    if args.use_existing_amendment and path.exists():
-        return path
-    rounds = query_round_index(run_dir)
-    claim = args.claim or question_text(run_dir)
-    if not claim:
-        raise SystemExit("Missing claim. Pass --claim or keep question.json in the run directory.")
-    subquestions: list[dict[str, Any]] = []
-    seen: set[tuple[str, str]] = set()
-    for row in rows:
-        next_query = clean(row.get("next_query"))
-        subquestion_id = clean(row.get("subquestion_id"))
-        if not next_query or not subquestion_id:
-            continue
-        key = (subquestion_id, next_query.lower())
-        if key in seen:
-            continue
-        seen.add(key)
-        round_info = rounds.get(subquestion_id, {})
-        source_key = clean(row.get("source_key") or row.get("publisher")).lower()
-        source_targets = []
-        publisher_targets = []
-        if source_key:
-            target = {
-                "key": source_key,
-                "enabled": True,
-                "priority": 1,
-                "activation_reason": clean(row.get("reason")) or "query iteration from coverage gap",
-            }
-            if source_key in {"pubmed", "arxiv"}:
-                target["kind"] = "bibliographic_index" if source_key == "pubmed" else "preprint_repository"
-                source_targets.append(target)
-            else:
-                target["kind"] = "publisher_platform"
-                publisher_targets.append(target)
-        subquestions.append({
-            "subquestion_id": subquestion_id,
-            "subquestion_slug": clean(row.get("subquestion_slug")) or clean(round_info.get("subquestion_slug")) or subquestion_id,
-            "subquestion_group_slug": clean(row.get("subquestion_group_slug")) or clean(round_info.get("subquestion_group_slug")) or "general",
-            "subquestion_group_title": clean(row.get("subquestion_group_title")) or clean(round_info.get("subquestion_group_title")) or "General",
-            "subquestion_text": clean(row.get("subquestion_text")) or clean(round_info.get("claim_subquestion")) or clean(round_info.get("subquestion_text")),
-            "query_family": clean(row.get("query_family")) or clean(round_info.get("query_family")) or "agent-iterated",
-            "queries": [next_query],
-            "source_targets": source_targets,
-            "publisher_targets": publisher_targets,
-            "publisher_discovery_plan": {
-                "search_limit_per_query": args.max_results_per_page,
-                "scrape_shortlist_limit": 5,
-                "use_research_category": True,
-                "use_research_index": False,
-                "use_publisher_advanced_pages": True,
-            },
-        })
-    if not subquestions:
-        raise SystemExit("No valid next queries to run.")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    base_plan = load_json(run_dir / "query-plan-preview.json", {})
-    plan = {
-        "english_big_question": claim,
-        "grounding_notes": clean(base_plan.get("grounding_notes")) or "OpenAlex delta grounding from reading-note gaps.",
-        "exploration_sources": base_plan.get("exploration_sources") or [
-            {"label": "OpenAlex", "url": "https://openalex.org", "note": "metadata grounding"},
-        ],
-        "openalex_grounding": base_plan.get("openalex_grounding") or {"api_key_present": True, "status": "ok", "terms": ["delta grounding"]},
-        "requires_user_approval": True,
-        "approval_status": "iteration_amendment",
-        "discovery_backend": args.discovery_backend,
-        "subquestions": subquestions,
-    }
-    path.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
-    return path
+    raise SystemExit(
+        "Python amendment construction from next-simple-queries.csv is disabled. "
+        "The responsible agent must write query-rationale-review.json, run query_iteration_review.py, "
+        "and pass the reviewed query-plan-amendment.json with --approved-query-plan."
+    )
 
 
 def build_command(run_dir: Path, plan_path: Path, args: argparse.Namespace) -> list[str]:
@@ -166,7 +95,6 @@ def build_command(run_dir: Path, plan_path: Path, args: argparse.Namespace) -> l
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("run_dir", type=Path)
-    parser.add_argument("--next-queries", type=Path)
     parser.add_argument("--claim", default="")
     parser.add_argument("--iteration", type=int, default=2)
     parser.add_argument("--total-iterations", type=int, default=3)
@@ -180,20 +108,20 @@ def main() -> int:
     parser.add_argument("--opencli-session", default="lit")
     parser.add_argument("--manual-blocker-wait-ms", type=int, default=12000)
     parser.add_argument("--abstract-expand-wait-ms", type=int, default=700)
-    parser.add_argument("--use-existing-amendment", action="store_true", help="Use an existing query-plan-amendment.json instead of rebuilding it.")
     parser.add_argument("--approved-query-plan", type=Path, help="Use this exact reviewed query-plan amendment for continued discovery.")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
     run_dir = args.run_dir.resolve()
-    if args.approved_query_plan:
-        plan_path = args.approved_query_plan.resolve()
-        if not plan_path.exists():
-            raise SystemExit(f"approved query plan not found: {plan_path}")
-    else:
-        next_queries_path = (args.next_queries or latest_next_queries(run_dir)).resolve()
-        rows = read_csv(next_queries_path)
-        plan_path = build_plan_amendment(run_dir, rows, args)
+    if not args.approved_query_plan:
+        raise SystemExit(
+            "continued query iteration requires --approved-query-plan pointing to a user-reviewed "
+            "query-plan-amendment.json from query_iteration_review.py. Direct next-simple-queries.csv "
+            "amendment construction is disabled in the public skill."
+        )
+    plan_path = args.approved_query_plan.resolve()
+    if not plan_path.exists():
+        raise SystemExit(f"approved query plan not found: {plan_path}")
     command = build_command(run_dir, plan_path, args)
     output_dir = plan_path.parent
     (output_dir / "continued-discovery-commands.json").write_text(

@@ -1234,7 +1234,7 @@ def write_question_artifacts(output_root: Path, args: argparse.Namespace, plans:
         if not (folder / "subquestion-summary-zh.md").exists():
             (folder / "subquestion-summary-zh.md").write_text(
                 "# Subquestion summary requires agent\n\n"
-                "Codex/subagent should write this after reading all article folders in this subquestion.\n",
+                "Agent/subagent should write this after reading all article folders in this subquestion.\n",
                 encoding="utf-8",
             )
         guidance = evidence_guidance(getattr(plan, "query_family", ""))
@@ -1597,7 +1597,7 @@ def write_agent_note_placeholder(article_dir: Path, data: dict[str, Any], args: 
     lines = [
         "# Agent-authored reading note required",
         "",
-        "`reading-note-zh.md` must be written by Codex after reading this article entry.",
+        "`reading-note-zh.md` must be written by an agent after reading this article entry.",
         "",
         "Required inputs:",
         "",
@@ -1637,7 +1637,7 @@ def write_auto_extract_note(article_dir: Path, data: dict[str, Any], args: argpa
     lines = [
         f"# Auto-extract draft - {data.get('title') or data.get('documentTitle') or 'Untitled'}",
         "",
-        "> Machine-extracted triage only. Codex must write `reading-note-zh.md` separately.",
+        "> Machine-extracted triage only. An agent must write `reading-note-zh.md` separately.",
         "",
         f"- DOI: `{data.get('doi') or ''}`",
         f"- Research question: {args.claim}",

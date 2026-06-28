@@ -87,7 +87,7 @@ def response_valid(path: Path) -> bool:
 def summary_valid(path: Path) -> bool:
     text = read_text(path)
     lower = text.lower()
-    return bool(clean(text)) and "requires agent" not in lower and "codex/subagent should write" not in lower
+    return bool(clean(text)) and "requires agent" not in lower and "agent/subagent should write" not in lower
 
 
 def validate_subquestion(

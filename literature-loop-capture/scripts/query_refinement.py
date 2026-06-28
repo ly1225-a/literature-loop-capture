@@ -82,7 +82,7 @@ def group_candidates(rows: list[dict[str, Any]], page: int, top_n: int) -> list[
                 "duplicate_status": clean(row.get("duplicate_status")) or "new",
                 "duplicate_of": clean(row.get("duplicate_of")),
                 "screening_priority": clean(row.get("screening_priority")) or "normal",
-                "selected_by_python": str(row.get("selected")).lower() == "true" or row.get("selected") is True,
+                "preselected_by_discovery_audit": str(row.get("selected")).lower() == "true" or row.get("selected") is True,
             })
         status_rows = [row for row in values if clean(row.get("stage")) != "candidate"]
         status_row = status_rows[0] if status_rows else {}
@@ -176,7 +176,7 @@ def recommendation_template(groups: list[dict[str, Any]], picks_per_query: int, 
                 "publisher": group.get("publisher", ""),
                 "page": group.get("page", 1),
                 "current_query": group.get("query_text", ""),
-                "decision": "needs_abstract_preview",
+                "decision": "",
                 "rcs_0_to_10": "",
                 "rcs_reasoning": "",
                 "rcs_flag": "",
@@ -249,7 +249,7 @@ def render_brief(
         "- Fill `query-refinement-recommendations.json` using the provided template.",
         "- Set top-level `review_mode` to `subagent` and `agent_id` to the actual subagent/tool identifier. If no subagent tool is callable, set `review_mode` to `main_agent_fallback`, fill `fallback_reason`, and write `main-agent-fallback.md`.",
         "- Write `subagent-response.md` with `review_mode`, `agent_id`, the groups reviewed, and concise evidence. A blank or generic response is invalid.",
-        "- Every group must include `rcs_0_to_10`, `rcs_reasoning`, and optional `rcs_flag`.",
+        "- Every group must explicitly set `decision`, `rcs_0_to_10`, `rcs_reasoning`, and optional `rcs_flag`; blank decisions are invalid.",
         "- Optionally write `query-refinement-notes.md` with concise reasoning.",
         "- Keep article picks bounded to the configured pick target.",
         "",

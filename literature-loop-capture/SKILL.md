@@ -39,6 +39,13 @@ claim, extract the supported publisher scope, record unsupported publishers as
 `literature_loop.py plan "<original request>"`. Do not require the user to
 manually prepare `--claim` unless they ask for exact CLI control.
 
+Year limits in the user's sentence are valid input, but they are structure, not
+query language. If the request says `years 2021-2026`, `year 2021 to 2026`, or
+similar, extract that into `--year-start 2021 --year-end 2026` and remove the
+`year(s)` words from the English claim and all publisher query text. A query
+such as `machine learning battery recycling years` is invalid; year filtering belongs
+only in year fields and publisher URL parameters.
+
 After `plan` succeeds, write the browser-review artifact before asking for
 approval:
 
@@ -65,8 +72,8 @@ or plan section. `--severity note` is informational. `--severity correction`
 blocks `approve query_plan_approval` until it is resolved:
 
 ```bash
-.venv/bin/python literature-loop-capture/scripts/literature_loop.py review-plan "LiteratureCaptures/<run-folder>" --target sq-01 --severity correction --note "This subquestion is too broad; split resources from methods."
-.venv/bin/python literature-loop-capture/scripts/literature_loop.py review-plan "LiteratureCaptures/<run-folder>" --resolve qpr-001 --resolution "Split sq-01 into resource and method subquestions."
+.venv/bin/python literature-loop-capture/scripts/literature_loop.py review-plan "LiteratureCaptures/<run-folder>" --target sq-01 --severity correction --note "This subquestion bundles two evidence needs; split them into separate agent-justified subquestions."
+.venv/bin/python literature-loop-capture/scripts/literature_loop.py review-plan "LiteratureCaptures/<run-folder>" --resolve qpr-001 --resolution "Split sq-01 into two evidence-specific subquestions grounded in the revised OpenAlex packet."
 ```
 
 When the user rejects or questions a plan element, do not revise the query plan
@@ -108,7 +115,7 @@ research question or claim
 -> reading notes extract high-value seeds, reference candidates, gaps, and next query actions
 -> subquestion_coverage_review.py writes coverage-review/subquestion-coverage-review.* from full text, notes, seeds, and gaps
 -> subquestion agent decides sufficient/iterate/stop_with_gaps for the whole subquestion
--> if iterate_query: generate query_iteration_plan and query-plan-amendment.json from the seed ledger, cumulative full-text evidence, missing evidence, unresolved references, gaps, and user review; open it with review-plan for user comments/corrections; wait for query_iteration_plan_approval
+-> if iterate_query: the responsible agent first writes query-rationale-review.json from the seed ledger, cumulative full-text evidence, missing evidence, unresolved references, gaps, and user review; Python then validates/routes that rationale into query_iteration_plan and query-plan-amendment.json; open it with review-plan for user comments/corrections; wait for query_iteration_plan_approval
 -> after approval, repeat only the approved broad_discovery rows for non-terminal subquestions through OpenCLI publisher discovery, title/snippet/context triage, abstract preview from saved abstracts then OpenAlex then OpenCLI detail pages for unresolved abstracts, capture decision, full-text capture, reading notes, seed/reference/gap extraction, and coverage review using cumulative evidence from all prior rounds
 -> for worth-close-reading primary articles, the subagent writes recommended-references.csv/json/md but does not trigger reference capture yet
 -> exact targets, high-value seeds, recommended references, and manual holds accumulate in cumulative ledgers by subquestion while any primary subquestion remains non-terminal
@@ -392,8 +399,9 @@ Loop invariants:
   English short phrase.
 - `next-simple-queries.csv` is only a queue of candidate next queries. Run
   `continue_query_iteration.py` only after the responsible subquestion agent
-  reads the cumulative full text and notes, then records
-  `coverage_decision=iterate_query`.
+  reads the cumulative full text and notes, records
+  `coverage_decision=iterate_query`, writes `query-rationale-review.json`, and
+  the user approves the generated `query-plan-amendment.json`.
 - Do not run `query_iteration_review.py`, `continue_query_iteration.py`, or
   any amendment builder for iteration 2+ until
   `query-rationale-review.md/json` exists for that subquestion. The amendment
@@ -704,12 +712,19 @@ this preflight is complete:
    topics, keywords, venues, DOI/year/citation signals, broad probe queries,
    concept hints, and supported-publisher focus evidence before finalizing
    subquestions and publisher queries.
+   Broad probe queries are a prompt for thinking, not a source of executable
+   search strings. Do not copy a `probe_queries` value verbatim into
+   `subquestions[].queries[].query`; rewrite around a specific agent-verified
+   concept anchor and cite the OpenAlex work metadata that justifies it.
 3. Run OpenAlex grounding with `OPENALEX_API_KEY` and record it as an
    `--exploration-source`. OpenAlex is metadata grounding only; it is not a
    full-text source.
 4. Run `scripts/openalex_grounding.py` with the English question.
 5. Read `agent-query-plan-packet.md` and author `agent-query-plan.json`.
-   Python must not fabricate the broad-question subquestions or keyword plan.
+   Python must not fabricate the broad-question subquestions, query families,
+   group folders, or keyword plan. Do not reuse a previous project's
+   subquestion outline unless the current OpenAlex metadata and user review
+   goal independently justify it.
 6. Run `scripts/validate_agent_query_plan.py` and
    `scripts/build_publisher_urls.py` to write `query-plan-preview.md/json`.
 7. Show the user the English big question, agent-authored subquestions, query
@@ -745,12 +760,14 @@ Do not pass Chinese `--claim` or `--query` values to capture.
 `incremental_capture.py` rejects CJK claim/query text unless
 `--allow-non-english-queries` is explicitly used for debugging.
 
-Treat one atomic subquestion as one query round. Do not combine several review
-points into one subquestion such as "resources, construction, applications, and
-limitations." Split those into separate rounds. If the topic map contains more
-points than the user's `--rounds` budget, show the full list, state which
-atomic subquestions will be included, and ask whether to increase `--rounds` or
-proceed with the first N.
+Treat one atomic subquestion as one query round. The agent decides the
+subquestions after reading OpenAlex titles, abstracts, topics, keywords, venues,
+and the user's review goal. Do not import a fixed outline from a previous
+project or combine several unrelated review points into one subquestion. If the
+agent's topic map contains more useful atomic subquestions than the user's
+`--rounds` budget, show the full list, explain why each candidate exists, state
+which will be included, and ask whether to increase `--rounds` or proceed with
+the selected subset.
 
 For filesystem organization, atomic subquestions may be grouped under broader
 composite folder themes. This grouping is only structural; it must not merge
@@ -842,9 +859,10 @@ groups, concept-map trace, and publisher query URLs.
   reference capture. After all primary subquestions are terminal,
   `reference_followup.py` aggregates those agent-picked references, dedupes
   them, checks DOI and bibliographic metadata with Crossref for the bounded
-  pool, and writes the reference capture queue. Use `--reference-mode
-  python-prefilter` only as a fallback when
-  reading notes did not produce recommendations.
+  pool, and writes the reference capture queue. If reading notes did not
+  produce recommendations, send the relevant article folders back to the
+  responsible agent for a better reading-note/reference pass instead of using
+  Python ranking as a substitute.
 - Reference follow-up capture is second-level only by default. In
   `agent-picked` mode, reading-note recommendations are already approved; the
   queue action is determined by metadata validation and publisher/PDF route
@@ -872,7 +890,8 @@ the repository `README.md`, `MIGRATION_MAC.md`, and package `MANIFEST.txt`.
 Do not copy `.git/`, `.pytest_cache/`, `tests/`, `docs/`, `output/`,
 `LiteratureCaptures/`, browser profiles, captured outputs, or credentials.
 
-Install the skill under `~/.codex/skills/literature-loop-capture` and
+Install the skill under your agent's skill directory, for example
+`<agent-skill-dir>/literature-loop-capture`, and
 replace any Windows example paths with local macOS browser/profile paths.
 OpenAlex query planning does not require connected Chrome/OpenCLI. OpenCLI publisher
 screening and full-text capture both require the authenticated connected Chrome/OpenCLI
@@ -880,18 +899,22 @@ profile.
 
 ## Question Grounding
 
-Before running publisher capture from a broad question, decompose the user
-request into subquestions. Do this in a Deep Research-like way: clarify the
+Before running publisher capture from a broad question, the agent must
+author the subquestions. Do this in a Deep Research-like way: clarify the
 research objective, identify the main concepts and neighboring terms, search the
-web for current topic framing, inspect broad OpenAlex metadata, then turn the
-topic map into query rounds. Grounding is intentionally wide so it can expose
-industry terms and neighboring concepts to the agent; the agent narrows later
-when writing `agent-query-plan.json`. The grounding must be saved before
-capture and should produce:
+web for current topic framing when useful, inspect broad OpenAlex metadata, then
+turn the agent's topic map into query rounds. Grounding is intentionally wide so
+it can expose terminology and neighboring concepts; Python only records that
+metadata and must not decide the subquestions. The grounding must be saved
+before capture and should support:
 
-- 3-8 atomic subquestions that cover definitions, data/resources, methods,
-  validation, applications, limitations, and review-specific gaps. Each
-  subquestion is one query round and one subagent work package.
+- Agent-authored atomic subquestions chosen from the user's review goal and
+  OpenAlex work metadata. The number and shape of subquestions are not fixed by
+  Python or by a canned resources/methods/evaluation template; use the user's
+  requested `--rounds` only as a review budget. Common evidence types such as
+  definitions, resources, methods, validation, applications, limitations, and
+  gaps are a coverage checklist, not a required subquestion outline. Each
+  accepted subquestion is one query round and one subagent work package.
 - Query families for each subquestion, with concept groups and simple keyword
   queries rather than the raw user sentence alone. Keep the Boolean expression
   only as a concept map/explanatory trace, not as the default publisher query.
@@ -921,7 +944,9 @@ agent-readable metadata inspection. Its OpenAlex probes are deliberately broad
 and may include adjacent industry terminology; they are not approved publisher
 queries. The agent writes `agent-query-plan.json`;
 `validate_agent_query_plan.py` rejects missing evidence, bare strings, and
-near-duplicate suffix queries; `build_publisher_urls.py` writes the approved
+near-duplicate suffix queries. It also rejects executable query text that
+copies an OpenAlex probe query or retains year-filter residue such as `years`
+or `2021-2026`; `build_publisher_urls.py` writes the approved
 `query-plan-preview.md/json` consumed by discovery.
 
 Generate the grounding packet:
@@ -995,7 +1020,7 @@ OpenCLI publisher discovery -> title/snippet/context triage -> abstract preview 
 -> subquestion agent reads all captured full text for the current subquestion
 -> subquestion agent writes reading notes, high-value seeds, reference picks, and gap list
 -> coverage review reads full text metadata, reading-note-zh.md content, seed evidence, selected references, gaps, and blockers
--> if coverage is insufficient and the iteration budget remains, run only approved broad_discovery queries from next-simple-queries.csv or the approved amendment
+-> if coverage is insufficient and the iteration budget remains, run only approved broad_discovery queries from the user-approved query-plan amendment
 -> repeat OpenCLI publisher discovery -> title/snippet/context triage -> abstract preview from saved search-page abstracts -> OpenAlex metadata for missing abstracts -> OpenCLI detail-page preview only for still-missing abstracts -> capture decision -> structured publisher full-text capture
 -> repeat reading notes -> high-value seed extraction -> reference marking -> gap list
 -> decide coverage again from cumulative full text and notes across all rounds
@@ -1078,8 +1103,10 @@ review either approves capture with stricter RCS, keeps rows as maybe, or skips
 them. It must not mark the subquestion sufficient here; sufficiency waits until
 the responsible subquestion agent has read the captured full text and notes
 for the whole subquestion. If `next-simple-queries.csv` has rows from the
-earlier search-page pass, treat those rows as queued candidate next queries
-only. Do not run `continue_query_iteration.py` yet.
+earlier search-page pass, treat those rows as queued candidate next-query
+ideas only. They must be re-justified in `query-rationale-review.json` and
+approved through the iteration review page before `continue_query_iteration.py`
+runs.
 
 ```powershell
 python "literature-loop-capture\scripts\build_abstract_capture_review_packets.py" `
@@ -1145,23 +1172,29 @@ python "literature-loop-capture\scripts\run_subquestion_loop.py" `
   --refresh-openalex-audit
 ```
 
-Run the gate again. If it returns `ready_for_query_iteration`, export the
-approved short queries for `continue_query_iteration.py`:
+Run the gate again. If it returns `ready_for_query_iteration`, do not export
+`next_simple_queries` directly. The responsible agent must first write
+`loop-state/<subquestion>/iteration-NN/query-rationale-review.json` from the
+seed ledger, references, gaps, prior query outcomes, and user comments. Then
+build the reviewable amendment:
 
 ```powershell
-python "literature-loop-capture\scripts\run_subquestion_loop.py" `
+python "literature-loop-capture\scripts\query_iteration_review.py" `
   "LiteratureCaptures\<run>" `
   --subquestion-id "01_example" `
-  --write-next-queries
+  --iteration 2
 ```
 
-Only then continue discovery without losing subquestion and publisher
-provenance:
+Open `loop-state/<subquestion>/iteration-02/iteration-review.html` in the
+agent built-in browser or localhost page, record any user comments, and approve
+`query_iteration_plan_approval` only after corrections are resolved. Only then
+continue discovery from the approved amendment without losing subquestion and
+publisher provenance:
 
 ```powershell
 python "literature-loop-capture\scripts\continue_query_iteration.py" `
   "LiteratureCaptures\<run>" `
-  --next-queries "LiteratureCaptures\<run>\loop-state\01_example\iteration-01\next-simple-queries.csv" `
+  --approved-query-plan "LiteratureCaptures\<run>\loop-state\01_example\iteration-02\query-plan-amendment.json" `
   --iteration 2 `
   --total-iterations 2 `
   --year-start 2021 `
@@ -1338,10 +1371,9 @@ subquestions have reached a terminal coverage state:
 python "literature-loop-capture\scripts\reference_followup.py" "LiteratureCaptures\<run-folder>" --candidate-pool-size 20
 ```
 
-Use `--reference-mode python-prefilter` to restore the legacy Python-first
-ranking behavior. In default `agent-picked` mode, all reading-note recommended
-references are retained after dedupe; `--candidate-pool-size` only bounds how
-many rows per subquestion get Crossref metadata checks by default. Use
+In default `agent-picked` mode, all reading-note recommended references are
+retained after dedupe; `--candidate-pool-size` only bounds how many rows per
+subquestion get Crossref metadata checks by default. Use
 `--refs-per-important-paper N` only when the user explicitly wants to cap how
 many recommendations are accepted from each close-read article. Use
 `--no-crossref` when network access is unavailable or when only a local triage
@@ -1366,7 +1398,7 @@ python literature-loop-capture/scripts/llm_wiki_export.py "LiteratureCaptures/<r
 ```
 
 By default this writes
-`LiteratureCaptures/<run-folder>/llm_wiki_project_export/foodkg/`. Use this
+`LiteratureCaptures/<run-folder>/llm_wiki_project_export/<project-slug>/`. Use this
 when the user's next knowledge layer is nashsu/llm_wiki or a similar local
 wiki app. It creates a project-shaped package with `purpose.md`, `schema.md`,
 `wiki/`, `raw/sources/`, `raw/assets/`, `raw/provenance/`, and
@@ -1429,11 +1461,11 @@ Each subquestion writes:
 - `subquestions/<group>/<id>/subagent-prompt.md`
 - `subquestions/<group>/<id>/subagent-response.md`
 - `subquestions/<group>/<id>/reading-notes-index.csv`
-- `subquestions/<group>/<id>/reference-candidates.csv/json/md` after Python
-  reference prefiltering
+- `subquestions/<group>/<id>/reference-candidates.csv/json/md` after
+  reading-note recommended references are deduped and metadata-checked
 - `subquestions/<group>/<id>/final-reference-selection.csv/json/md` as a
   compatibility ledger of reading-note-approved references in `agent-picked`
-  mode, or as a draft selection only when using `python-prefilter`
+  mode
 - `subquestions/<group>/<id>/reference-provenance.csv/json/md`
 - `subquestions/<group>/<id>/followup-capture-queue.csv/json/md`
 - `subquestions/<group>/<id>/subquestion-summary-zh.md`, written by the responsible
@@ -1486,8 +1518,8 @@ DOI/title/authors/year/container/type, verification status, capture hint,
 capture query, capture notes, score basis, and agent score/reason/status
 fields. In the default `agent-picked` mode, score basis records that the
 reference was selected during reading-note writing and `approval_status` should
-be `agent_picked_approved`; in `python-prefilter` mode it records the legacy
-Python ranking logic and starts as a draft.
+be `agent_picked_approved`. Python may dedupe, check Crossref metadata, and
+route rows, but it does not create the relevance selection.
 
 `overview-materials.md` is not a final synthesis. It is only a compact evidence
 index for agent to use while writing the final `overview.md`.
@@ -1633,9 +1665,9 @@ mode is `--reference-mode agent-picked`. The script:
 The Python score is not the intellectual judgment in default mode. The
 responsible subagent selects references while writing reading notes; Python only
 dedupes, verifies, and queues. Do not run a second subagent/agent relevance
-review over these rows. If no reading-note recommendations exist, rerun with
-`--reference-mode python-prefilter` to use the legacy ranking fallback; only
-that fallback mode requires a later human/subagent review before capture.
+review over these rows. If no reading-note recommendations exist, do not use
+Python ranking as a replacement; send the article folders back for reading-note
+or reference-selection repair before running follow-up capture.
 
 Reference follow-up is mandatory for broad literature review runs, but it is a
 post-primary-coverage phase. Do not stop after writing `reference-candidates.*`
@@ -1763,7 +1795,7 @@ python literature-loop-capture/scripts/llm_wiki_export.py "$RUN_DIR"
 Default output:
 
 ```text
-<run>/llm_wiki_project_export/foodkg/
+<run>/llm_wiki_project_export/<project-slug>/
   README.md
   purpose.md
   schema.md
@@ -1800,7 +1832,7 @@ canonical PDFs only in the capture folders and `_knowledge` audit/dropbox
 workflow.
 
 `_knowledge/` remains the refreshable human preview layer.
-`llm_wiki_project_export/foodkg/` is a terminal export folder and may be
+`llm_wiki_project_export/<project-slug>/` is a terminal export folder and may be
 deleted/regenerated. Do not put user PDF dropboxes there. Do not let
 llm_wiki-generated summaries overwrite canonical capture folders, reading
 notes, coverage reviews, or query ledgers. If llm_wiki finds a new gap or
@@ -1915,7 +1947,7 @@ At the root, `_knowledge/papers/duplicate-report.md` records duplicate capture
 groups, and `_knowledge/llm_wiki/attachments_manifest.csv` lists every
 indexed artifact path, hash, article title, DOI, and subquestion without
 creating an attachment copy. This is the prep layer for the terminal
-`llm_wiki_project_export/foodkg/` export: it lets the user inspect papers,
+`llm_wiki_project_export/<project-slug>/` export: it lets the user inspect papers,
 notes, figures/tables, seeds, references, and query history by subquestion
 before feeding the curated dossier into llm_wiki.
 

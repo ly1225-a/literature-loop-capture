@@ -1024,7 +1024,7 @@ def write_overview_materials(run_dir: Path, summary_rows: list[dict[str, Any]], 
         f"- Article types: {', '.join(f'{k}={v}' for k, v in sorted(article_types.items())) or 'none'}",
         f"- Follow-up reference candidates: {len(followup_rows)}",
         "",
-        "This file is source material only. The final `overview.md` must be written by Codex after reading the captured full text, figures, tables, and `reading-note-zh.md` files.",
+        "This file is source material only. The final `overview.md` must be written by an agent after reading the captured full text, figures, tables, and `reading-note-zh.md` files.",
         "",
         "## Captured Evidence",
         "",
@@ -1052,7 +1052,7 @@ def write_overview_materials(run_dir: Path, summary_rows: list[dict[str, Any]], 
     requires_agent = [
         "# OVERVIEW_REQUIRES_AGENT",
         "",
-        "Write `overview.md` only after Codex has read the captured article folders and the Chinese reading notes.",
+        "Write `overview.md` only after the agent has read the captured article folders and the Chinese reading notes.",
         "",
         "Required structure:",
         "",
@@ -1271,14 +1271,14 @@ def build_followups_agent_picked(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("run_dir", type=Path)
-    parser.add_argument("--reference-mode", choices=["agent-picked", "python-prefilter"], default="agent-picked")
+    parser.add_argument("--reference-mode", choices=["agent-picked"], default="agent-picked")
     parser.add_argument("--refs-per-important-paper", type=int, default=0, help="Optional cap for agent-picked references per worth-close-reading article. Default 0 keeps all reading-note recommendations.")
     parser.add_argument("--candidate-pool-size", type=int, default=20, help="Candidate references per atomic subquestion.")
     parser.add_argument(
         "--final-top-n",
         type=int,
         default=2,
-        help="Legacy cap for python-prefilter drafts. Ignored for reading-note-approved agent-picked rows.",
+        help="Compatibility cap. Ignored for reading-note-approved agent-picked rows.",
     )
     parser.add_argument("--top-n", type=int, default=None, help="Deprecated alias for --final-top-n; kept for old commands.")
     parser.add_argument("--crossref-pool-size", type=int, default=0, help="Maximum candidate references per subquestion to check with Crossref metadata lookup. Defaults to --candidate-pool-size.")
@@ -1287,23 +1287,14 @@ def main() -> int:
     args = parser.parse_args()
     final_top_n = args.top_n if args.top_n is not None else args.final_top_n
     candidate_pool_size = max(args.candidate_pool_size, final_top_n)
-    if args.reference_mode == "python-prefilter":
-        rows = build_followups(
-            args.run_dir.resolve(),
-            candidate_pool_size,
-            final_top_n,
-            args.use_crossref,
-            args.crossref_pool_size or candidate_pool_size,
-        )
-    else:
-        rows = build_followups_agent_picked(
-            args.run_dir.resolve(),
-            candidate_pool_size,
-            final_top_n,
-            args.use_crossref,
-            args.crossref_pool_size or candidate_pool_size,
-            max(0, args.refs_per_important_paper),
-        )
+    rows = build_followups_agent_picked(
+        args.run_dir.resolve(),
+        candidate_pool_size,
+        final_top_n,
+        args.use_crossref,
+        args.crossref_pool_size or candidate_pool_size,
+        max(0, args.refs_per_important_paper),
+    )
     print(f"reference_candidates={len(rows)}")
     print(f"reference_mode={args.reference_mode}")
     print(f"candidate_pool_size={candidate_pool_size}")
