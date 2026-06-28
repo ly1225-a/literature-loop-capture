@@ -96,8 +96,8 @@ REGISTRY: dict[str, SourceAdapter] = {
         pdf_link_patterns=["/doi/pdf/", "/doi/epdf/"],
         advanced_search={
             "page": "https://pubs.acs.org/search/advanced",
-            "result_template": "https://pubs.acs.org/action/doSearch?AllField={query_plus}&AfterYear={year_start}&BeforeYear={year_end}",
-            "fields": ["AllField", "Keyword", "AfterYear", "BeforeYear"],
+            "result_template": "https://pubs.acs.org/action/doSearch?field1=AllField&text1={query_plus}&ConceptID=&ConceptID=&publication=&accessType=allContent&Earliest=&AfterMonth=12&AfterYear={year_start}&BeforeMonth=12&BeforeYear={year_end}&pageSize=20",
+            "fields": ["field1", "text1", "AfterYear", "BeforeYear", "pageSize"],
         },
         default_access_route="publisher_authenticated",
     ),
@@ -128,8 +128,8 @@ REGISTRY: dict[str, SourceAdapter] = {
         pdf_link_patterns=["/doi/pdf/", "/doi/epdf/"],
         advanced_search={
             "page": "https://onlinelibrary.wiley.com/search/advanced",
-            "result_template": "https://onlinelibrary.wiley.com/action/doSearch?AllField={query_plus}&AfterYear={year_start}&BeforeYear={year_end}",
-            "fields": ["AllField", "Keyword", "AfterYear", "BeforeYear"],
+            "result_template": "https://onlinelibrary.wiley.com/action/doSearch?field1=AllField&text1={query_plus}&field2=AllField&text2=&field3=AllField&text3=&publication=&Ppub=&AfterMonth=12&AfterYear={year_start}&BeforeMonth=12&BeforeYear={year_end}&pageSize=20",
+            "fields": ["field1", "text1", "AfterYear", "BeforeYear", "pageSize"],
         },
         default_access_route="publisher_authenticated",
     ),

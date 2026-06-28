@@ -692,9 +692,9 @@ def publisher_problem_from_state(state: dict[str, Any], page_url: str) -> str:
     allowed_direct = [
         "sciencedirect.com/search",
         "sciencedirect.com/science/article",
-        "pubs.acs.org/action/doSearch",
+        "pubs.acs.org/action/dosearch",
         "pubs.acs.org/doi/",
-        "onlinelibrary.wiley.com/action/doSearch",
+        "onlinelibrary.wiley.com/action/dosearch",
         "onlinelibrary.wiley.com/doi/",
         "link.springer.com/search",
         "link.springer.com/article/",

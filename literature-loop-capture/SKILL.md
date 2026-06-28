@@ -788,6 +788,11 @@ groups, concept-map trace, and publisher query URLs.
 - Run OpenCLI browser scripts sequentially for a given literature run. Use the
   default sessions `lit`, `lit-preview`, and `lit-capture`, or pass
   `--opencli-session` explicitly when a different session is needed.
+- Some scripts close the OpenCLI session when their queued work is finished, so
+  the visible browser may return to a blank/new-tab page after a successful
+  run. Treat the written artifacts, logs, and row counts as the completion
+  signal. A blank page is a blocker only while the script is trying to navigate
+  or extract the publisher page.
 - If an authenticated connected Chrome/OpenCLI GUI is already open with the target profile,
   do not terminate it from agent or from a script, and do not copy the profile
   to bypass the lock. This state means authentication may still be valid and URLs
